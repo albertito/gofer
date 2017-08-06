@@ -1,0 +1,22 @@
+
+# Address for the control/debug http.
+control_addr = "127.0.0.1:8081"
+
+# HTTP(s) proxy
+[[https]]
+addr = ":https"
+certs = "/etc/letsencrypt/live/"
+
+# Take the routes from the definition below as a baseline.
+base_routes = "default"
+
+# Extend the base routes.
+routes = { "/local/" = "http://localhost:99/" }
+
+[[http]]
+addr = ":http"
+base_routes = "default"
+
+[routes.default]
+"/" = "http://localhost:8080/"
+
