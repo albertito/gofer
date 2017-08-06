@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -91,12 +92,19 @@ type loggingTransport struct{}
 
 func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	response, err := http.DefaultTransport.RoundTrip(req)
+
 	errs := ""
 	if err != nil {
 		errs = " (" + err.Error() + ")"
 	}
-	util.Log.Printf("%s %s %s -> %d%s", req.RemoteAddr, req.Proto, req.URL,
-		response.StatusCode, errs)
+
+	resps := "<nil>"
+	if response != nil {
+		resps = fmt.Sprintf("%d", response.StatusCode)
+	}
+
+	util.Log.Printf("%s %s %s -> %s%s", req.RemoteAddr, req.Proto, req.URL,
+		resps, errs)
 
 	return response, err
 }
