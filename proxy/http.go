@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"path"
 	"strings"
 
 	"blitiri.com.ar/go/gofer/config"
@@ -69,7 +68,7 @@ func makeProxy(from string, to *url.URL) http.Handler {
 		req.URL.Scheme = to.Scheme
 		req.URL.Host = to.Host
 		req.URL.RawQuery = req.URL.RawQuery
-		req.URL.Path = path.Join(to.Path, strings.TrimPrefix(req.URL.Path, from))
+		req.URL.Path = joinPath(to.Path, strings.TrimPrefix(req.URL.Path, from))
 		if req.URL.Path == "" || req.URL.Path[0] != '/' {
 			req.URL.Path = "/" + req.URL.Path
 		}
@@ -86,6 +85,15 @@ func makeProxy(from string, to *url.URL) http.Handler {
 	}
 
 	return proxy
+}
+
+// joinPath joins to HTTP paths. We can't use path.Join because it strips the
+// final "/", which may have meaning in URLs.
+func joinPath(a, b string) string {
+	if !strings.HasSuffix(a, "/") && !strings.HasPrefix(b, "/") {
+		a = a + "/"
+	}
+	return a + b
 }
 
 type loggingTransport struct{}

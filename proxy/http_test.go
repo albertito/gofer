@@ -110,3 +110,23 @@ func getFreePort() string {
 	defer l.Close()
 	return l.Addr().String()
 }
+
+func TestJoinPath(t *testing.T) {
+	cases := []struct{ a, b, expected string }{
+		{"/a/", "", "/a/"},
+		{"/a/", "b", "/a/b"},
+		{"/a/", "b/", "/a/b/"},
+		{"a/", "", "a/"},
+		{"a/", "b", "a/b"},
+		{"a/", "b/", "a/b/"},
+		{"/", "", "/"},
+		{"", "", "/"},
+		{"/", "/", "//"}, // Not sure if we want this, but ok for now.
+	}
+	for _, c := range cases {
+		got := joinPath(c.a, c.b)
+		if got != c.expected {
+			t.Errorf("join %q, %q = %q, expected %q", c.a, c.b, got, c.expected)
+		}
+	}
+}
