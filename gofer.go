@@ -34,6 +34,10 @@ func main() {
 		go proxy.HTTP(*http)
 	}
 
+	for _, raw := range conf.Raw {
+		go proxy.Raw(raw)
+	}
+
 	// Monitoring server.
 	if conf.ControlAddr != "" {
 		mux := http.NewServeMux()

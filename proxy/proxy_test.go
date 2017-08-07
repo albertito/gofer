@@ -14,11 +14,6 @@ import (
 	"blitiri.com.ar/go/gofer/config"
 )
 
-const configTemplate = `
-[[http]]
-addr = "$FRONTEND_ADDR"
-routes = { "/be/" = "$BACKEND_URL" }
-`
 const backendResponse = "backend response\n"
 
 func TestSimple(t *testing.T) {
@@ -28,28 +23,50 @@ func TestSimple(t *testing.T) {
 		}))
 	defer backend.Close()
 
-	feAddr := getFreePort()
+	// We have two frontends: one raw and one http.
+	rawAddr := getFreePort()
+	httpAddr := getFreePort()
 
+	const configTemplate = `
+[[raw]]
+addr = "$RAW_ADDR"
+to = "$BACKEND_ADDR"
+
+[[http]]
+addr = "$HTTP_ADDR"
+routes = { "/be/" = "$BACKEND_URL" }
+`
 	configStr := strings.NewReplacer(
-		"$FRONTEND_ADDR", feAddr,
+		"$RAW_ADDR", rawAddr,
+		"$HTTP_ADDR", httpAddr,
 		"$BACKEND_URL", backend.URL,
+		"$BACKEND_ADDR", backend.Listener.Addr().String(),
 	).Replace(configTemplate)
 
 	conf, err := config.LoadString(configStr)
 	if err != nil {
 		log.Fatal(err)
 	}
+	t.Logf("conf.Raw[0]: %#v", conf.Raw[0])
 	t.Logf("conf.HTTP[0]: %#v", *conf.HTTP[0])
 
+	go Raw(conf.Raw[0])
 	go HTTP(*conf.HTTP[0])
 
-	waitForHTTPServer(feAddr)
+	waitForHTTPServer(httpAddr)
+	waitForHTTPServer(rawAddr)
 
-	testGet(t, "http://"+feAddr+"/be", 200)
-	testGet(t, "http://"+feAddr+"/be/", 200)
-	testGet(t, "http://"+feAddr+"/be/2", 200)
-	testGet(t, "http://"+feAddr+"/be/3", 200)
-	testGet(t, "http://"+feAddr+"/x", 404)
+	// Test the raw proxy.
+	testGet(t, "http://"+rawAddr+"/be", 200)
+
+	// Test the HTTP proxy. Try a combination of URLs and error responses just
+	// to exercise a bit more of the path handling and error checking code.
+	testGet(t, "http://"+httpAddr+"/be", 200)
+	testGet(t, "http://"+httpAddr+"/be/", 200)
+	testGet(t, "http://"+httpAddr+"/be/2", 200)
+	testGet(t, "http://"+httpAddr+"/be/3", 200)
+	testGet(t, "http://"+httpAddr+"/x", 404)
+
 }
 
 func testGet(t *testing.T, url string, expectedStatus int) {

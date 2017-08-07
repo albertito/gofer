@@ -14,8 +14,9 @@ type Config struct {
 
 	HTTP  []*HTTP
 	HTTPS []*HTTPS
+	Raw   []Raw
 
-	// Map of name -> routes.
+	// Map of name -> routes for HTTP(S).
 	Routes map[string]RouteTable
 }
 
@@ -28,6 +29,13 @@ type HTTP struct {
 type HTTPS struct {
 	HTTP
 	Certs string
+}
+
+type Raw struct {
+	Addr  string
+	Certs string
+	To    string
+	ToTLS bool `toml:"to_tls",omitempty`
 }
 
 type RouteTable map[string]string

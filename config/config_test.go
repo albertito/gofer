@@ -10,6 +10,12 @@ func TestSimple(t *testing.T) {
 	const contents = `
 control_addr = "127.0.0.1:9081"
 
+[[raw]]
+addr = ":995"
+certs = "/etc/letsencrypt/live/"
+to = "blerg.com:1995"
+to_tls = true
+
 [[http]]
 addr = ":http"
 base_routes = "default"
@@ -33,6 +39,14 @@ base_routes = "default"
 
 	expected := Config{
 		ControlAddr: "127.0.0.1:9081",
+		Raw: []Raw{
+			Raw{
+				Addr:  ":995",
+				Certs: "/etc/letsencrypt/live/",
+				To:    "blerg.com:1995",
+				ToTLS: true,
+			},
+		},
 		HTTP: []*HTTP{
 			&HTTP{
 				Addr:       ":http",
