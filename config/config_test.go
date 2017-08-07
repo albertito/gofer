@@ -27,6 +27,7 @@ base_routes = "default"
 addr = ":https"
 certs = "/etc/letsencrypt/live/"
 base_routes = "default"
+unknown_field = "x"
 
   [https.routes]
     "/" = "http://tlsoverrides/"
@@ -78,6 +79,8 @@ base_routes = "default"
 				"/common": "http://common/",
 			},
 		},
+
+		undecoded: []string{"https.unknown_field"},
 	}
 
 	conf, err := LoadString(contents)
@@ -90,4 +93,11 @@ base_routes = "default"
 		t.Errorf("  expected: %v", expected.String())
 		t.Errorf("  got:      %v", conf.String())
 	}
+
+	if !reflect.DeepEqual(conf.Undecoded(), expected.Undecoded()) {
+		t.Errorf("undecoded is not as expected")
+		t.Errorf("  expected: %q", expected.Undecoded())
+		t.Errorf("  got:      %q", conf.Undecoded())
+	}
+
 }

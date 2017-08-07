@@ -26,6 +26,10 @@ func main() {
 		util.Log.Fatalf("error reading config file: %v", err)
 	}
 
+	for _, k := range conf.Undecoded() {
+		util.Log.Printf("warning: undecoded config key: %q", k)
+	}
+
 	for _, https := range conf.HTTPS {
 		go proxy.HTTPS(*https)
 	}

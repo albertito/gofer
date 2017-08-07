@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
@@ -18,6 +19,9 @@ type Config struct {
 
 	// Map of name -> routes for HTTP(S).
 	Routes map[string]RouteTable
+
+	// Undecoded fields - private so we don't serialize them.
+	undecoded []string
 }
 
 type HTTP struct {
@@ -50,6 +54,10 @@ func mergeRoutes(src, dst RouteTable) {
 	}
 }
 
+func (c Config) Undecoded() []string {
+	return c.undecoded
+}
+
 func (c Config) String() string {
 	s, err := c.ToString()
 	if err != nil {
@@ -77,9 +85,15 @@ func Load(filename string) (*Config, error) {
 
 func LoadString(contents string) (*Config, error) {
 	conf := &Config{}
-	_, err := toml.Decode(contents, conf)
+	md, err := toml.Decode(contents, conf)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing config: %v", err)
+	}
+
+	// Save undecoded keys so they can be accessed later (e.g. for debugging
+	// or checking).
+	for _, key := range md.Undecoded() {
+		conf.undecoded = append(conf.undecoded, strings.Join(key, "."))
 	}
 
 	// Link routes.
