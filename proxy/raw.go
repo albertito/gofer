@@ -3,6 +3,7 @@ package proxy
 import (
 	"crypto/tls"
 	"net"
+	"time"
 
 	"blitiri.com.ar/go/gofer/config"
 	"blitiri.com.ar/go/gofer/util"
@@ -43,6 +44,7 @@ func Raw(conf config.Raw) {
 func forward(src net.Conn, dstAddr string, dstTLS bool) {
 	defer src.Close()
 
+	start := time.Now()
 	var dst net.Conn
 	var err error
 	if dstTLS {
@@ -57,11 +59,11 @@ func forward(src net.Conn, dstAddr string, dstTLS bool) {
 	}
 	defer dst.Close()
 
-	util.Log.Printf("%s raw %s -> %s: open",
-		src.RemoteAddr(), src.LocalAddr(), dst.RemoteAddr())
-
+	startCopy := time.Now()
 	util.BidirCopy(src, dst)
+	end := time.Now()
 
-	util.Log.Printf("%s raw %s -> %s: close",
-		src.RemoteAddr(), src.LocalAddr(), dst.RemoteAddr())
+	util.Log.Printf("%s raw %s -> %s (%s+%s=%s)",
+		src.RemoteAddr(), src.LocalAddr(), dst.RemoteAddr(),
+		startCopy.Sub(start), end.Sub(startCopy), end.Sub(start))
 }
