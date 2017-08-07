@@ -42,6 +42,14 @@ func mergeRoutes(src, dst RouteTable) {
 	}
 }
 
+func (c Config) String() string {
+	s, err := c.ToString()
+	if err != nil {
+		return fmt.Sprintf("<error: %v>", err)
+	}
+	return s
+}
+
 func (c Config) ToString() (string, error) {
 	buf := new(bytes.Buffer)
 	if err := toml.NewEncoder(buf).Encode(c); err != nil {
