@@ -32,26 +32,28 @@ var (
 func InitLog() {
 	var err error
 	var logfd io.Writer
+	var flags int
 
 	if *logfile == "-" {
 		logfd = os.Stdout
+		flags |= log.Lshortfile
 	} else if *logfile != "" {
 		logfd, err = os.OpenFile(*logfile,
-			os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
+			os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0664)
 		if err != nil {
-			log.Fatalf("error opening log file %s: %v",
-				*logfile, err)
+			log.Fatalf("error opening log file %s: %v", *logfile, err)
 		}
+		flags |= log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile
 	} else {
 		logfd, err = syslog.New(
 			syslog.LOG_INFO|syslog.LOG_DAEMON, "gofer")
 		if err != nil {
 			log.Fatalf("error opening syslog: %v", err)
 		}
+		flags |= log.Lshortfile
 	}
 
-	Log = log.New(logfd, "",
-		log.Ldate|log.Ltime|log.Lmicroseconds|log.Lshortfile)
+	Log = log.New(logfd, "", flags)
 }
 
 // LoadCerts loads certificates from the given directory, and returns a TLS
