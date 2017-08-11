@@ -123,7 +123,9 @@ func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 		resps = fmt.Sprintf("%d", response.StatusCode)
 	}
 
-	util.Log.Printf("%s %s %s -> %s%s", req.RemoteAddr, req.Proto, req.URL,
+	// 1.2.3.4:34575 HTTP/2.0 domain.com https://backend/path -> 200
+	util.Log.Printf("%s %s %s %s -> %s%s",
+		req.RemoteAddr, req.Proto, req.Host, req.URL,
 		resps, errs)
 
 	return response, err
