@@ -28,7 +28,7 @@ func httpServer(conf config.HTTP) *http.Server {
 				from, to, err)
 		}
 		util.Log.Printf("%s route %q -> %q", srv.Addr, from, toURL)
-		mux.Handle(from, makeProxy(from, toURL))
+		mux.Handle(from, makeProxy(from, *toURL))
 	}
 
 	return srv
@@ -55,15 +55,27 @@ func HTTPS(conf config.HTTPS) {
 	util.Log.Fatalf("HTTPS proxy exited: %v", err)
 }
 
-func makeProxy(from string, to *url.URL) http.Handler {
+func makeProxy(from string, to url.URL) http.Handler {
 	proxy := &httputil.ReverseProxy{}
 	proxy.ErrorLog = util.Log
 	proxy.Transport = transport
 
 	// Director that strips "from" from the request path, so that if we have
 	// this config:
+	//
 	//   /a/ -> http://dst/b
-	// then a request for /a/x goes to http://dst/b/x, not http://dst/b/a/x.
+	//   www.example.com/p/ -> http://dst/q
+	//
+	// then:
+	//   /a/x  goes to  http://dst/b/x (not http://dst/b/a/x)
+	//   www.example.com/p/x  goes to  http://dst/q/x
+
+	// Strip the domain from `from`, if any. That is useful for the http
+	// router, but to us is irrelevant.
+	if idx := strings.Index(from, "/"); idx > 0 {
+		from = from[idx:]
+	}
+
 	proxy.Director = func(req *http.Request) {
 		req.URL.Scheme = to.Scheme
 		req.URL.Host = to.Host

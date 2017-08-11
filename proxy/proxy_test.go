@@ -34,7 +34,10 @@ to = "$BACKEND_ADDR"
 
 [[http]]
 addr = "$HTTP_ADDR"
-routes = { "/be/" = "$BACKEND_URL" }
+
+[http.routes]
+"/be/" = "$BACKEND_URL"
+"localhost/xy/" = "$BACKEND_URL"
 `
 	configStr := strings.NewReplacer(
 		"$RAW_ADDR", rawAddr,
@@ -66,7 +69,12 @@ routes = { "/be/" = "$BACKEND_URL" }
 	testGet(t, "http://"+httpAddr+"/be/2", 200)
 	testGet(t, "http://"+httpAddr+"/be/3", 200)
 	testGet(t, "http://"+httpAddr+"/x", 404)
+	testGet(t, "http://"+httpAddr+"/xy/1", 404)
 
+	// Test the domain-based routing.
+	_, httpPort, _ := net.SplitHostPort(httpAddr)
+	testGet(t, "http://localhost:"+httpPort+"/be/", 200)
+	testGet(t, "http://localhost:"+httpPort+"/xy/1", 200)
 }
 
 func testGet(t *testing.T, url string, expectedStatus int) {
