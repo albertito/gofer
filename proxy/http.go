@@ -9,12 +9,12 @@ import (
 
 	"blitiri.com.ar/go/gofer/config"
 	"blitiri.com.ar/go/gofer/util"
+	"blitiri.com.ar/go/log"
 )
 
 func httpServer(conf config.HTTP) *http.Server {
 	srv := &http.Server{
-		Addr:     conf.Addr,
-		ErrorLog: util.Log,
+		Addr: conf.Addr,
 		// TODO: timeouts.
 	}
 
@@ -24,10 +24,10 @@ func httpServer(conf config.HTTP) *http.Server {
 	for from, to := range conf.RouteTable {
 		toURL, err := url.Parse(to)
 		if err != nil {
-			util.Log.Fatalf("route %q -> %q: destination is not a valid URL: %v",
+			log.Fatalf("route %q -> %q: destination is not a valid URL: %v",
 				from, to, err)
 		}
-		util.Log.Printf("%s route %q -> %q", srv.Addr, from, toURL)
+		log.Infof("%s route %q -> %q", srv.Addr, from, toURL)
 		mux.Handle(from, makeProxy(from, *toURL))
 	}
 
@@ -36,9 +36,9 @@ func httpServer(conf config.HTTP) *http.Server {
 
 func HTTP(conf config.HTTP) {
 	srv := httpServer(conf)
-	util.Log.Printf("HTTP proxy on %q", conf.Addr)
+	log.Infof("HTTP proxy on %q", conf.Addr)
 	err := srv.ListenAndServe()
-	util.Log.Fatalf("HTTP proxy exited: %v", err)
+	log.Fatalf("HTTP proxy exited: %v", err)
 }
 
 func HTTPS(conf config.HTTPS) {
@@ -47,17 +47,16 @@ func HTTPS(conf config.HTTPS) {
 
 	srv.TLSConfig, err = util.LoadCerts(conf.Certs)
 	if err != nil {
-		util.Log.Fatalf("error loading certs: %v", err)
+		log.Fatalf("error loading certs: %v", err)
 	}
 
-	util.Log.Printf("HTTPS proxy on %q", srv.Addr)
+	log.Infof("HTTPS proxy on %q", srv.Addr)
 	err = srv.ListenAndServeTLS("", "")
-	util.Log.Fatalf("HTTPS proxy exited: %v", err)
+	log.Fatalf("HTTPS proxy exited: %v", err)
 }
 
 func makeProxy(from string, to url.URL) http.Handler {
 	proxy := &httputil.ReverseProxy{}
-	proxy.ErrorLog = util.Log
 	proxy.Transport = transport
 
 	// Director that strips "from" from the request path, so that if we have
@@ -124,7 +123,7 @@ func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	}
 
 	// 1.2.3.4:34575 HTTP/2.0 domain.com https://backend/path -> 200
-	util.Log.Printf("%s %s %s %s -> %s%s",
+	log.Infof("%s %s %s %s -> %s%s",
 		req.RemoteAddr, req.Proto, req.Host, req.URL,
 		resps, errs)
 

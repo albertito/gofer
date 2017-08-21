@@ -7,6 +7,7 @@ import (
 
 	"blitiri.com.ar/go/gofer/config"
 	"blitiri.com.ar/go/gofer/util"
+	"blitiri.com.ar/go/log"
 )
 
 func Raw(conf config.Raw) {
@@ -16,7 +17,7 @@ func Raw(conf config.Raw) {
 	if conf.Certs != "" {
 		tlsConfig, err = util.LoadCerts(conf.Certs)
 		if err != nil {
-			util.Log.Fatalf("error loading certs: %v", err)
+			log.Fatalf("error loading certs: %v", err)
 		}
 	}
 
@@ -27,14 +28,14 @@ func Raw(conf config.Raw) {
 		lis, err = net.Listen("tcp", conf.Addr)
 	}
 	if err != nil {
-		util.Log.Fatalf("error listening: %v", err)
+		log.Fatalf("error listening: %v", err)
 	}
 
-	util.Log.Printf("Raw proxy on %q", conf.Addr)
+	log.Infof("Raw proxy on %q", conf.Addr)
 	for {
 		conn, err := lis.Accept()
 		if err != nil {
-			util.Log.Fatalf("%s error accepting: %v", conf.Addr, err)
+			log.Fatalf("%s error accepting: %v", conf.Addr, err)
 		}
 
 		go forward(conn, conf.To, conf.ToTLS)
@@ -54,7 +55,7 @@ func forward(src net.Conn, dstAddr string, dstTLS bool) {
 	}
 
 	if err != nil {
-		util.Log.Printf("%s error dialing back: %v", src.LocalAddr(), err)
+		log.Errorf("%s error dialing back: %v", src.LocalAddr(), err)
 		return
 	}
 	defer dst.Close()
@@ -63,7 +64,7 @@ func forward(src net.Conn, dstAddr string, dstTLS bool) {
 	util.BidirCopy(src, dst)
 	end := time.Now()
 
-	util.Log.Printf("%s raw %s -> %s (%s+%s=%s)",
+	log.Infof("%s raw %s -> %s (%s+%s=%s)",
 		src.RemoteAddr(), src.LocalAddr(), dst.RemoteAddr(),
 		startCopy.Sub(start), end.Sub(startCopy), end.Sub(start))
 }

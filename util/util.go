@@ -3,58 +3,12 @@ package util
 
 import (
 	"crypto/tls"
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
-	"log/syslog"
 	"os"
 	"path/filepath"
 )
-
-// Log is used to log messages.
-var Log *log.Logger
-
-func init() {
-	// Always have a log from early initialization; this helps with coding
-	// errors and can simplify some tests.
-	Log = log.New(os.Stderr, "<early> ",
-		log.Ldate|log.Ltime|log.Lmicroseconds|log.Lshortfile)
-}
-
-// Flags.
-var (
-	logfile = flag.String("logfile", "-",
-		"File to write logs to, use '-' for stdout")
-)
-
-func InitLog() {
-	var err error
-	var logfd io.Writer
-	var flags int
-
-	if *logfile == "-" {
-		logfd = os.Stdout
-		flags |= log.Lshortfile
-	} else if *logfile != "" {
-		logfd, err = os.OpenFile(*logfile,
-			os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0664)
-		if err != nil {
-			log.Fatalf("error opening log file %s: %v", *logfile, err)
-		}
-		flags |= log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile
-	} else {
-		logfd, err = syslog.New(
-			syslog.LOG_INFO|syslog.LOG_DAEMON, "gofer")
-		if err != nil {
-			log.Fatalf("error opening syslog: %v", err)
-		}
-		flags |= log.Lshortfile
-	}
-
-	Log = log.New(logfd, "", flags)
-}
 
 // LoadCerts loads certificates from the given directory, and returns a TLS
 // config including them.

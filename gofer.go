@@ -8,7 +8,7 @@ import (
 
 	"blitiri.com.ar/go/gofer/config"
 	"blitiri.com.ar/go/gofer/proxy"
-	"blitiri.com.ar/go/gofer/util"
+	"blitiri.com.ar/go/log"
 )
 
 // Flags.
@@ -19,15 +19,15 @@ var (
 
 func main() {
 	flag.Parse()
-	util.InitLog()
+	log.Init()
 
 	conf, err := config.Load(*configfile)
 	if err != nil {
-		util.Log.Fatalf("error reading config file: %v", err)
+		log.Fatalf("error reading config file: %v", err)
 	}
 
 	for _, k := range conf.Undecoded() {
-		util.Log.Printf("warning: undecoded config key: %q", k)
+		log.Infof("warning: undecoded config key: %q", k)
 	}
 
 	for _, https := range conf.HTTPS {
@@ -49,15 +49,14 @@ func main() {
 		mux.HandleFunc("/debug/config", dumpConfigFunc(conf))
 
 		server := http.Server{
-			Addr:     conf.ControlAddr,
-			ErrorLog: util.Log,
-			Handler:  mux,
+			Addr:    conf.ControlAddr,
+			Handler: mux,
 		}
 
-		util.Log.Printf("%s Starting monitoring server ", server.Addr)
-		util.Log.Fatal(server.ListenAndServe())
+		log.Infof("%s Starting monitoring server ", server.Addr)
+		log.Fatalf("%v", server.ListenAndServe())
 	} else {
-		util.Log.Print("No monitoring server, idle loop")
+		log.Infof("No monitoring server, idle loop")
 		time.Sleep(1 * time.Hour)
 	}
 }
