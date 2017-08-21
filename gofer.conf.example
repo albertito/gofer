@@ -4,7 +4,12 @@ control_addr = "127.0.0.1:8081"
 
 # HTTP(s) proxy
 [[https]]
+
+# Address to listen on.
+# systemd socket passing is supported, use "&name" to indicate that you've set
+# up a systemd socket unit with "FileDescriptorName=name".
 addr = ":https"
+
 certs = "/etc/letsencrypt/live/"
 
 # Take the routes from the definition below as a baseline.

@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -10,6 +11,7 @@ import (
 	"blitiri.com.ar/go/gofer/config"
 	"blitiri.com.ar/go/gofer/util"
 	"blitiri.com.ar/go/log"
+	"blitiri.com.ar/go/systemd"
 )
 
 func httpServer(conf config.HTTP) *http.Server {
@@ -36,8 +38,12 @@ func httpServer(conf config.HTTP) *http.Server {
 
 func HTTP(conf config.HTTP) {
 	srv := httpServer(conf)
-	log.Infof("HTTP proxy on %q", conf.Addr)
-	err := srv.ListenAndServe()
+	lis, err := systemd.Listen("tcp", conf.Addr)
+	if err != nil {
+		log.Fatalf("HTTP proxy error listening on %q: %v", conf.Addr, err)
+	}
+	log.Infof("HTTP proxy on %q (%q)", conf.Addr, lis.Addr())
+	err = srv.Serve(lis)
 	log.Fatalf("HTTP proxy exited: %v", err)
 }
 
@@ -50,8 +56,19 @@ func HTTPS(conf config.HTTPS) {
 		log.Fatalf("error loading certs: %v", err)
 	}
 
-	log.Infof("HTTPS proxy on %q", srv.Addr)
-	err = srv.ListenAndServeTLS("", "")
+	rawLis, err := systemd.Listen("tcp", conf.Addr)
+	if err != nil {
+		log.Fatalf("HTTPS proxy error listening on %q: %v", conf.Addr, err)
+	}
+
+	// We need to set the NextProtos manually before creating the TLS
+	// listener, the library cannot help us with this.
+	srv.TLSConfig.NextProtos = append(srv.TLSConfig.NextProtos,
+		"h2", "http/1.1")
+	lis := tls.NewListener(rawLis, srv.TLSConfig)
+
+	log.Infof("HTTPS proxy on %q (%q)", conf.Addr, lis.Addr())
+	err = srv.Serve(lis)
 	log.Fatalf("HTTPS proxy exited: %v", err)
 }
 

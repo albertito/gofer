@@ -8,6 +8,7 @@ import (
 	"blitiri.com.ar/go/gofer/config"
 	"blitiri.com.ar/go/gofer/util"
 	"blitiri.com.ar/go/log"
+	"blitiri.com.ar/go/systemd"
 )
 
 func Raw(conf config.Raw) {
@@ -23,15 +24,16 @@ func Raw(conf config.Raw) {
 
 	var lis net.Listener
 	if tlsConfig != nil {
-		lis, err = tls.Listen("tcp", conf.Addr, tlsConfig)
+		lis, err = systemd.Listen("tcp", conf.Addr)
+		lis = tls.NewListener(lis, tlsConfig)
 	} else {
-		lis, err = net.Listen("tcp", conf.Addr)
+		lis, err = systemd.Listen("tcp", conf.Addr)
 	}
 	if err != nil {
-		log.Fatalf("error listening: %v", err)
+		log.Fatalf("Raw proxy error listening on %q: %v", conf.Addr, err)
 	}
 
-	log.Infof("Raw proxy on %q", conf.Addr)
+	log.Infof("Raw proxy on %q (%q)", conf.Addr, lis.Addr())
 	for {
 		conn, err := lis.Accept()
 		if err != nil {
