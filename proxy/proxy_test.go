@@ -3,108 +3,17 @@ package proxy
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"blitiri.com.ar/go/gofer/config"
+	"blitiri.com.ar/go/log"
 )
-
-const backendResponse = "backend response\n"
-
-func TestSimple(t *testing.T) {
-	backend := httptest.NewServer(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			fmt.Fprint(w, backendResponse)
-		}))
-	defer backend.Close()
-
-	// We have two frontends: one raw and one http.
-	rawAddr := getFreePort()
-	httpAddr := getFreePort()
-
-	const configTemplate = `
-[[raw]]
-addr = "$RAW_ADDR"
-to = "$BACKEND_ADDR"
-
-[[http]]
-addr = "$HTTP_ADDR"
-
-[http.routes]
-"/be/" = "$BACKEND_URL"
-"localhost/xy/" = "$BACKEND_URL"
-`
-	configStr := strings.NewReplacer(
-		"$RAW_ADDR", rawAddr,
-		"$HTTP_ADDR", httpAddr,
-		"$BACKEND_URL", backend.URL,
-		"$BACKEND_ADDR", backend.Listener.Addr().String(),
-	).Replace(configTemplate)
-
-	conf, err := config.LoadString(configStr)
-	if err != nil {
-		log.Fatal(err)
-	}
-	t.Logf("conf.Raw[0]: %#v", conf.Raw[0])
-	t.Logf("conf.HTTP[0]: %#v", *conf.HTTP[0])
-
-	go Raw(conf.Raw[0])
-	go HTTP(*conf.HTTP[0])
-
-	waitForHTTPServer(httpAddr)
-	waitForHTTPServer(rawAddr)
-
-	// Test the raw proxy.
-	testGet(t, "http://"+rawAddr+"/be", 200)
-
-	// Test the HTTP proxy. Try a combination of URLs and error responses just
-	// to exercise a bit more of the path handling and error checking code.
-	testGet(t, "http://"+httpAddr+"/be", 200)
-	testGet(t, "http://"+httpAddr+"/be/", 200)
-	testGet(t, "http://"+httpAddr+"/be/2", 200)
-	testGet(t, "http://"+httpAddr+"/be/3", 200)
-	testGet(t, "http://"+httpAddr+"/x", 404)
-	testGet(t, "http://"+httpAddr+"/xy/1", 404)
-
-	// Test the domain-based routing.
-	_, httpPort, _ := net.SplitHostPort(httpAddr)
-	testGet(t, "http://localhost:"+httpPort+"/be/", 200)
-	testGet(t, "http://localhost:"+httpPort+"/xy/1", 200)
-}
-
-func testGet(t *testing.T, url string, expectedStatus int) {
-	t.Logf("URL: %s", url)
-	resp, err := http.Get(url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("status %v", resp.Status)
-
-	if resp.StatusCode != expectedStatus {
-		t.Errorf("expected status %d, got %v", expectedStatus, resp.Status)
-		t.Errorf("response: %#v", resp)
-	}
-
-	// We don't care about the body for non-200 responses.
-	if resp.StatusCode != http.StatusOK {
-		return
-	}
-
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(b) != backendResponse {
-		t.Errorf("expected body = %q, got %q", backendResponse, string(b))
-	}
-
-	t.Logf("response body: %q", b)
-}
 
 // WaitForHTTPServer waits 5 seconds for an HTTP server to start, and returns
 // an error if it fails to do so.
@@ -136,6 +45,112 @@ func getFreePort() string {
 	return l.Addr().String()
 }
 
+const backendResponse = "backend response\n"
+
+// Addresses of the proxy under test (created by TestMain).
+var (
+	httpAddr string
+	rawAddr  string
+)
+
+// startServer for testing. Returns raw addr, http addr, and the backend test
+// server (which should be closed afterwards).
+// Note it leaks goroutines, we're ok with this for testing.
+func TestMain(m *testing.M) {
+	backend := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, backendResponse)
+		}))
+	defer backend.Close()
+
+	// We have two frontends: one raw and one http.
+	rawAddr = getFreePort()
+	httpAddr = getFreePort()
+
+	log.Default.Level = log.Error
+
+	const configTemplate = `
+[[raw]]
+addr = "$RAW_ADDR"
+to = "$BACKEND_ADDR"
+
+[[http]]
+addr = "$HTTP_ADDR"
+
+[http.routes]
+"/be/" = "$BACKEND_URL"
+"localhost/xy/" = "$BACKEND_URL"
+`
+	configStr := strings.NewReplacer(
+		"$RAW_ADDR", rawAddr,
+		"$HTTP_ADDR", httpAddr,
+		"$BACKEND_URL", backend.URL,
+		"$BACKEND_ADDR", backend.Listener.Addr().String(),
+	).Replace(configTemplate)
+
+	conf, err := config.LoadString(configStr)
+	if err != nil {
+		log.Fatalf("error loading test config: %v", err)
+	}
+
+	go Raw(conf.Raw[0])
+	go HTTP(*conf.HTTP[0])
+
+	waitForHTTPServer(httpAddr)
+	waitForHTTPServer(rawAddr)
+
+	os.Exit(m.Run())
+}
+
+func TestSimple(t *testing.T) {
+	// Test the raw proxy.
+	testGet(t, "http://"+rawAddr+"/be", 200)
+
+	// Test the HTTP proxy. Try a combination of URLs and error responses just
+	// to exercise a bit more of the path handling and error checking code.
+	testGet(t, "http://"+httpAddr+"/be", 200)
+	testGet(t, "http://"+httpAddr+"/be/", 200)
+	testGet(t, "http://"+httpAddr+"/be/2", 200)
+	testGet(t, "http://"+httpAddr+"/be/3", 200)
+	testGet(t, "http://"+httpAddr+"/x", 404)
+	testGet(t, "http://"+httpAddr+"/xy/1", 404)
+
+	// Test the domain-based routing.
+	_, httpPort, _ := net.SplitHostPort(httpAddr)
+	testGet(t, "http://localhost:"+httpPort+"/be/", 200)
+	testGet(t, "http://localhost:"+httpPort+"/xy/1", 200)
+}
+
+func testGet(t *testing.T, url string, expectedStatus int) {
+	//t.Helper()  -- Uncomment once Go 1.9 is commonplace.
+	t.Logf("URL: %s", url)
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("status %v", resp.Status)
+
+	if resp.StatusCode != expectedStatus {
+		t.Errorf("expected status %d, got %v", expectedStatus, resp.Status)
+		t.Errorf("response: %#v", resp)
+	}
+
+	// We don't care about the body for non-200 responses.
+	if resp.StatusCode != http.StatusOK {
+		return
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != backendResponse {
+		t.Errorf("expected body = %q, got %q", backendResponse, string(b))
+	}
+
+	t.Logf("response body: %q", b)
+}
+
 func TestJoinPath(t *testing.T) {
 	cases := []struct{ a, b, expected string }{
 		{"/a/", "", "/a/"},
@@ -154,4 +169,54 @@ func TestJoinPath(t *testing.T) {
 			t.Errorf("join %q, %q = %q, expected %q", c.a, c.b, got, c.expected)
 		}
 	}
+}
+
+func Benchmark(b *testing.B) {
+	makeBench := func(url string) func(b *testing.B) {
+		return func(b *testing.B) {
+			var resp *http.Response
+			var err error
+			for i := 0; i < b.N; i++ {
+				resp, err = http.Get(url)
+				if err != nil {
+					b.Fatal(err)
+				}
+				resp.Body.Close()
+				if resp.StatusCode != 200 {
+					b.Errorf("expected status 200, got %v", resp.Status)
+					b.Fatalf("response: %#v", resp)
+				}
+			}
+		}
+	}
+
+	b.Run("HTTP", makeBench("http://"+httpAddr+"/be"))
+	b.Run("Raw", makeBench("http://"+rawAddr+"/be"))
+}
+
+func BenchmarkParallel(b *testing.B) {
+	makeP := func(url string) func(pb *testing.PB) {
+		return func(pb *testing.PB) {
+			var resp *http.Response
+			var err error
+			for pb.Next() {
+				resp, err = http.Get(url)
+				if err != nil {
+					b.Fatal(err)
+				}
+				resp.Body.Close()
+				if resp.StatusCode != 200 {
+					b.Errorf("expected status 200, got %v", resp.Status)
+					b.Fatalf("response: %#v", resp)
+				}
+			}
+		}
+	}
+
+	b.Run("HTTP", func(b *testing.B) {
+		b.RunParallel(makeP("http://" + httpAddr + "/be"))
+	})
+	b.Run("Raw", func(b *testing.B) {
+		b.RunParallel(makeP("http://" + rawAddr + "/be"))
+	})
 }
