@@ -1,0 +1,19 @@
+[Unit]
+Description=gofer proxy
+Requires=gofer-http.socket gofer-https.socket
+
+[Service]
+ExecStart=/usr/local/bin/gofer -configfile=/etc/gofer.conf
+
+Type=simple
+Restart=always
+
+User=gofer
+Group=gofer
+
+# Simple security measures just in case.
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
+
