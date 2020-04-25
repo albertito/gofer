@@ -1,0 +1,6 @@
+blitiri.com.ar/go/log v0.0.0-20171003035348-6cd06f6ca2f8 h1:1lsgqZmMh8DYLb/ZaBeSSNTaKiMBe9QC/1XOkupUNLU=
+blitiri.com.ar/go/log v0.0.0-20171003035348-6cd06f6ca2f8/go.mod h1:xOW3xCYp3dEVSQWNKiiKIqBtjVN4cinE+0HypCpGC+E=
+blitiri.com.ar/go/systemd v0.0.0-20171003041308-cdc4fd023aa4 h1:ceTBe2TiHNkhA7q/TAHyukC5Jc1iUb7On/++f1Mszwk=
+blitiri.com.ar/go/systemd v0.0.0-20171003041308-cdc4fd023aa4/go.mod h1:FmDkVlYnOzDHOhtSwtLHh6z9WVVx+aPjrHkPtfA3qhI=
+github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
+github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
