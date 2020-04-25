@@ -30,7 +30,19 @@ func httpServer(conf config.HTTP) *http.Server {
 				from, to, err)
 		}
 		log.Infof("%s route %q -> %q", srv.Addr, from, toURL)
-		mux.Handle(from, makeProxy(from, *toURL))
+		switch toURL.Scheme {
+		case "http", "https":
+			mux.Handle(from, makeProxy(from, *toURL))
+		case "dir":
+			mux.Handle(from, makeDir(from, *toURL))
+		case "static":
+			mux.Handle(from, makeStatic(from, *toURL))
+		case "redirect":
+			mux.Handle(from, makeRedirect(from, *toURL))
+		default:
+			log.Fatalf("route %q -> %q: invalid destination scheme %q",
+				from, to, toURL.Scheme)
+		}
 	}
 
 	return srv
@@ -88,18 +100,13 @@ func makeProxy(from string, to url.URL) http.Handler {
 
 	// Strip the domain from `from`, if any. That is useful for the http
 	// router, but to us is irrelevant.
-	if idx := strings.Index(from, "/"); idx > 0 {
-		from = from[idx:]
-	}
+	from = stripDomain(from)
 
 	proxy.Director = func(req *http.Request) {
 		req.URL.Scheme = to.Scheme
 		req.URL.Host = to.Host
 		req.URL.RawQuery = req.URL.RawQuery
-		req.URL.Path = joinPath(to.Path, strings.TrimPrefix(req.URL.Path, from))
-		if req.URL.Path == "" || req.URL.Path[0] != '/' {
-			req.URL.Path = "/" + req.URL.Path
-		}
+		req.URL.Path = adjustPath(req.URL.Path, from, to.Path)
 
 		// If the user agent is not set, prevent a fall back to the default value.
 		if _, ok := req.Header["User-Agent"]; !ok {
@@ -122,6 +129,71 @@ func joinPath(a, b string) string {
 		a = a + "/"
 	}
 	return a + b
+}
+
+func stripDomain(from string) string {
+	// Strip the domain from `from`, if any. That is useful for the http
+	// router, but to us is irrelevant.
+	if idx := strings.Index(from, "/"); idx > 0 {
+		from = from[idx:]
+	}
+	return from
+}
+
+func adjustPath(req string, from string, to string) string {
+	// Strip "from" from the request path, so that if we have this config:
+	//
+	//   /a/ -> http://dst/b
+	//   www.example.com/p/ -> http://dst/q
+	//
+	// then:
+	//   /a/x  goes to  http://dst/b/x (not http://dst/b/a/x)
+	//   www.example.com/p/x  goes to  http://dst/q/x
+	//
+	// It is expected that `from` already has the domain removed using
+	// stripDomain.
+	dst := joinPath(to, strings.TrimPrefix(req, from))
+	if dst == "" || dst[0] != '/' {
+		dst = "/" + dst
+	}
+	return dst
+}
+
+func makeDir(from string, to url.URL) http.Handler {
+	from = stripDomain(from)
+
+	fs := http.FileServer(http.Dir(to.Path))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.URL.Path = strings.TrimPrefix(r.URL.Path, from)
+		if r.URL.Path == "" || r.URL.Path[0] != '/' {
+			r.URL.Path = "/" + r.URL.Path
+		}
+		fs.ServeHTTP(w, r)
+	})
+}
+
+func makeStatic(from string, to url.URL) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, to.Path)
+	})
+}
+
+func makeRedirect(from string, to url.URL) http.Handler {
+	from = stripDomain(from)
+
+	dst, err := url.Parse(to.Opaque)
+	if err != nil {
+		log.Fatalf("Invalid destination %q for redirect route: %v",
+			to.Opaque, err)
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		target := *dst
+		target.RawQuery = r.URL.RawQuery
+		target.Path = adjustPath(r.URL.Path, from, dst.Path)
+
+		http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
+	})
 }
 
 type loggingTransport struct{}

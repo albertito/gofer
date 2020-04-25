@@ -69,6 +69,8 @@ func TestMain(m *testing.M) {
 
 	log.Default.Level = log.Error
 
+	pwd, _ := os.Getwd()
+
 	const configTemplate = `
 [[raw]]
 addr = "$RAW_ADDR"
@@ -80,12 +82,16 @@ addr = "$HTTP_ADDR"
 [http.routes]
 "/be/" = "$BACKEND_URL"
 "localhost/xy/" = "$BACKEND_URL"
+"/static/hola" = "static:$PWD/testdata/hola"
+"/dir/" = "dir:$PWD/testdata/"
+"/redir/" = "redirect:http://$HTTP_ADDR/dir/"
 `
 	configStr := strings.NewReplacer(
 		"$RAW_ADDR", rawAddr,
 		"$HTTP_ADDR", httpAddr,
 		"$BACKEND_URL", backend.URL,
 		"$BACKEND_ADDR", backend.Listener.Addr().String(),
+		"$PWD", pwd,
 	).Replace(configTemplate)
 
 	conf, err := config.LoadString(configStr)
@@ -119,6 +125,11 @@ func TestSimple(t *testing.T) {
 	_, httpPort, _ := net.SplitHostPort(httpAddr)
 	testGet(t, "http://localhost:"+httpPort+"/be/", 200)
 	testGet(t, "http://localhost:"+httpPort+"/xy/1", 200)
+
+	// Test dir and static schemes.
+	testGet(t, "http://"+httpAddr+"/static/hola", 200)
+	testGet(t, "http://"+httpAddr+"/dir/hola", 200)
+	testGet(t, "http://"+httpAddr+"/redir/hola", 200)
 }
 
 func testGet(t *testing.T, url string, expectedStatus int) {
