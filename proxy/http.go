@@ -6,6 +6,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"time"
 
 	"blitiri.com.ar/go/gofer/config"
 	"blitiri.com.ar/go/gofer/trace"
@@ -17,7 +18,9 @@ import (
 func httpServer(conf config.HTTP) *http.Server {
 	srv := &http.Server{
 		Addr: conf.Addr,
-		// TODO: timeouts.
+
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
 	}
 
 	// Load route table.
