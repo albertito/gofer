@@ -2,13 +2,13 @@ package proxy
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
 
 	"blitiri.com.ar/go/gofer/config"
+	"blitiri.com.ar/go/gofer/trace"
 	"blitiri.com.ar/go/gofer/util"
 	"blitiri.com.ar/go/log"
 	"blitiri.com.ar/go/systemd"
@@ -52,11 +52,11 @@ func HTTP(conf config.HTTP) {
 	srv := httpServer(conf)
 	lis, err := systemd.Listen("tcp", conf.Addr)
 	if err != nil {
-		log.Fatalf("HTTP proxy error listening on %q: %v", conf.Addr, err)
+		log.Fatalf("%s error listening: %v", conf.Addr, err)
 	}
-	log.Infof("HTTP proxy on %q (%q)", conf.Addr, lis.Addr())
+	log.Infof("%s http proxy starting on %q", conf.Addr, lis.Addr())
 	err = srv.Serve(lis)
-	log.Fatalf("HTTP proxy exited: %v", err)
+	log.Fatalf("%s http proxy exited: %v", conf.Addr, err)
 }
 
 func HTTPS(conf config.HTTPS) {
@@ -65,12 +65,12 @@ func HTTPS(conf config.HTTPS) {
 
 	srv.TLSConfig, err = util.LoadCerts(conf.Certs)
 	if err != nil {
-		log.Fatalf("error loading certs: %v", err)
+		log.Fatalf("%s error loading certs: %v", conf.Addr, err)
 	}
 
 	rawLis, err := systemd.Listen("tcp", conf.Addr)
 	if err != nil {
-		log.Fatalf("HTTPS proxy error listening on %q: %v", conf.Addr, err)
+		log.Fatalf("%s error listening: %v", conf.Addr, err)
 	}
 
 	// We need to set the NextProtos manually before creating the TLS
@@ -79,9 +79,9 @@ func HTTPS(conf config.HTTPS) {
 		"h2", "http/1.1")
 	lis := tls.NewListener(rawLis, srv.TLSConfig)
 
-	log.Infof("HTTPS proxy on %q (%q)", conf.Addr, lis.Addr())
+	log.Infof("%s https proxy starting on %q", conf.Addr, lis.Addr())
 	err = srv.Serve(lis)
-	log.Fatalf("HTTPS proxy exited: %v", err)
+	log.Fatalf("%s https proxy exited: %v", conf.Addr, err)
 }
 
 func makeProxy(from string, to url.URL) http.Handler {
@@ -119,7 +119,7 @@ func makeProxy(from string, to url.URL) http.Handler {
 		//req.Host = to.Host
 	}
 
-	return proxy
+	return newReverseProxy(proxy)
 }
 
 // joinPath joins to HTTP paths. We can't use path.Join because it strips the
@@ -163,19 +163,29 @@ func makeDir(from string, to url.URL) http.Handler {
 	from = stripDomain(from)
 
 	fs := http.FileServer(http.Dir(to.Path))
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.URL.Path = strings.TrimPrefix(r.URL.Path, from)
-		if r.URL.Path == "" || r.URL.Path[0] != '/' {
-			r.URL.Path = "/" + r.URL.Path
-		}
-		fs.ServeHTTP(w, r)
-	})
+	return WithLogging("http:dir",
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			tr, _ := trace.FromContext(r.Context())
+			tr.Printf("serving dir root %q", to.Path)
+
+			r.URL.Path = strings.TrimPrefix(r.URL.Path, from)
+			if r.URL.Path == "" || r.URL.Path[0] != '/' {
+				r.URL.Path = "/" + r.URL.Path
+			}
+			tr.Printf("adjusted path: %q", r.URL.Path)
+			fs.ServeHTTP(w, r)
+		}),
+	)
 }
 
 func makeStatic(from string, to url.URL) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, to.Path)
-	})
+	return WithLogging("http:static",
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			tr, _ := trace.FromContext(r.Context())
+			tr.Printf("statically serving %q", to.Path)
+			http.ServeFile(w, r, to.Path)
+		}),
+	)
 }
 
 func makeRedirect(from string, to url.URL) http.Handler {
@@ -187,37 +197,115 @@ func makeRedirect(from string, to url.URL) http.Handler {
 			to.Opaque, err)
 	}
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		target := *dst
-		target.RawQuery = r.URL.RawQuery
-		target.Path = adjustPath(r.URL.Path, from, dst.Path)
+	return WithLogging("http:redirect",
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			tr, _ := trace.FromContext(r.Context())
+			target := *dst
+			target.RawQuery = r.URL.RawQuery
+			target.Path = adjustPath(r.URL.Path, from, dst.Path)
+			tr.Printf("redirect to %q", target.String())
 
-		http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
-	})
+			http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
+		}),
+	)
 }
 
 type loggingTransport struct{}
 
 func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	tr, _ := trace.FromContext(req.Context())
+
+	tr.Printf("proxy to: %s %s %s",
+		req.Proto, req.Method, req.URL.String())
+
 	response, err := http.DefaultTransport.RoundTrip(req)
-
-	errs := ""
-	if err != nil {
-		errs = " (" + err.Error() + ")"
+	if response == nil || err != nil {
+		// errorHandler will be invoked for these, avoid double error logging.
+		tr.Printf("response: %v", response)
+		tr.Printf("%v", err)
+		tr.SetError()
+	} else {
+		tr.Printf("%s", response.Status)
+		tr.Printf("%d bytes", response.ContentLength)
+		if response.StatusCode >= 400 {
+			tr.SetError()
+		}
 	}
-
-	resps := "<nil>"
-	if response != nil {
-		resps = fmt.Sprintf("%d", response.StatusCode)
-	}
-
-	// 1.2.3.4:34575 HTTP/2.0 domain.com https://backend/path -> 200
-	log.Infof("%s %s %s %s -> %s%s",
-		req.RemoteAddr, req.Proto, req.Host, req.URL,
-		resps, errs)
 
 	return response, err
 }
 
 // Use a single logging transport, we don't need more than one.
 var transport = &loggingTransport{}
+
+type reverseProxy struct {
+	rp *httputil.ReverseProxy
+}
+
+func newReverseProxy(rp *httputil.ReverseProxy) http.Handler {
+	p := &reverseProxy{
+		rp: rp,
+	}
+	rp.ErrorHandler = p.errorHandler
+	return p
+}
+
+func (p *reverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	tr := trace.New("http:proxy", req.Host+req.URL.String())
+	defer tr.Finish()
+
+	tr.Printf("%s %s %s %s %s",
+		req.RemoteAddr, req.Proto, req.Method, req.Host, req.URL.String())
+
+	// Associate the trace with this request.
+	req = req.WithContext(trace.NewContext(req.Context(), tr))
+
+	p.rp.ServeHTTP(rw, req)
+}
+
+func (p *reverseProxy) errorHandler(w http.ResponseWriter, r *http.Request, err error) {
+	tr, _ := trace.FromContext(r.Context())
+	tr.Errorf("proxy: %v", err)
+	w.WriteHeader(http.StatusBadGateway)
+}
+
+// Wrapper around http.ResponseWriter so we can extract status and length.
+type statusWriter struct {
+	http.ResponseWriter
+	status int
+	length int
+}
+
+func (w *statusWriter) WriteHeader(status int) {
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *statusWriter) Write(b []byte) (int, error) {
+	n, err := w.ResponseWriter.Write(b)
+	w.length += n
+	return n, err
+}
+
+func WithLogging(name string, parent http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tr := trace.New(name, r.Host+r.URL.String())
+		defer tr.Finish()
+
+		// Associate the trace with this request.
+		r = r.WithContext(trace.NewContext(r.Context(), tr))
+
+		// Wrap the writer so we can get output information.
+		sw := statusWriter{ResponseWriter: w}
+
+		tr.Printf("%s %s %s %s %s",
+			r.RemoteAddr, r.Proto, r.Method, r.Host, r.URL.String())
+		parent.ServeHTTP(&sw, r)
+		tr.Printf("%d %s", sw.status, http.StatusText(sw.status))
+		tr.Printf("%d bytes", sw.length)
+
+		if sw.status >= 400 {
+			tr.SetError()
+		}
+	})
+}

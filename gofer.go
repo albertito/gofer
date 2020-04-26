@@ -2,11 +2,10 @@ package main
 
 import (
 	"flag"
-	"net/http"
-	"runtime"
 	"time"
 
 	"blitiri.com.ar/go/gofer/config"
+	"blitiri.com.ar/go/gofer/debug"
 	"blitiri.com.ar/go/gofer/proxy"
 	"blitiri.com.ar/go/log"
 )
@@ -42,43 +41,11 @@ func main() {
 		go proxy.Raw(raw)
 	}
 
-	// Monitoring server.
 	if conf.ControlAddr != "" {
-		mux := http.NewServeMux()
-		mux.HandleFunc("/debug/stack", dumpStack)
-		mux.HandleFunc("/debug/config", dumpConfigFunc(conf))
+		go debug.ServeDebugging(conf.ControlAddr, conf)
+	}
 
-		server := http.Server{
-			Addr:    conf.ControlAddr,
-			Handler: mux,
-		}
-
-		log.Infof("%s Starting monitoring server ", server.Addr)
-		log.Fatalf("%v", server.ListenAndServe())
-	} else {
-		log.Infof("No monitoring server, idle loop")
+	for {
 		time.Sleep(1 * time.Hour)
 	}
-}
-
-// dumpStack handler for the control listener.
-func dumpStack(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	buf := make([]byte, 500*1024)
-	c := runtime.Stack(buf, true)
-	w.Write(buf[:c])
-}
-
-// dumpConfig handler for the control listener.
-func dumpConfigFunc(conf *config.Config) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		s, err := conf.ToString()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Write([]byte(s))
-	})
 }

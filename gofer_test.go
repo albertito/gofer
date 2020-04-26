@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"blitiri.com.ar/go/gofer/config"
+	"blitiri.com.ar/go/gofer/debug"
 )
 
 func TestDumpConfig(t *testing.T) {
@@ -16,7 +17,7 @@ func TestDumpConfig(t *testing.T) {
 		t.Fatalf("error loading config example: %v", err)
 	}
 
-	srv := httptest.NewServer(http.HandlerFunc(dumpConfigFunc(conf)))
+	srv := httptest.NewServer(http.HandlerFunc(debug.DumpConfigFunc(conf)))
 
 	res, err := http.Get(srv.URL)
 	if err != nil {
