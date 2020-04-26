@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"blitiri.com.ar/go/log"
 
@@ -122,6 +123,19 @@ func (e *EventLog) Errorf(format string, a ...interface{}) error {
 		e, e.family, e.title, quote(err.Error()))
 
 	return err
+}
+
+// Write so EventLog implements io.Writer, which means it can be used as
+// output for log.Logger.
+func (e *EventLog) Write(p []byte) (n int, err error) {
+	lines := strings.Split(string(p), "\n")
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		e.Printf("%s", line)
+	}
+	return len(p), nil
 }
 
 func quote(s string) string {

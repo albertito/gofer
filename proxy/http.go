@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"crypto/tls"
+	golog "log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -16,11 +17,15 @@ import (
 )
 
 func httpServer(conf config.HTTP) *http.Server {
+	ev := trace.NewEventLog("httpserver", conf.Addr)
+
 	srv := &http.Server{
 		Addr: conf.Addr,
 
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
+
+		ErrorLog: golog.New(ev, "", golog.Lshortfile),
 	}
 
 	// Load route table.
