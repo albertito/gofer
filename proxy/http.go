@@ -1,7 +1,9 @@
 package proxy
 
 import (
+	"context"
 	"crypto/tls"
+	"errors"
 	golog "log"
 	"net/http"
 	"net/http/httputil"
@@ -227,17 +229,15 @@ func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 		req.Proto, req.Method, req.URL.String())
 
 	response, err := http.DefaultTransport.RoundTrip(req)
-	if response == nil || err != nil {
-		// errorHandler will be invoked for these, avoid double error logging.
-		tr.Printf("response: %v", response)
-		tr.Printf("%v", err)
-		tr.SetError()
-	} else {
+	if err == nil {
 		tr.Printf("%s", response.Status)
 		tr.Printf("%d bytes", response.ContentLength)
-		if response.StatusCode >= 400 {
+		if response.StatusCode >= 400 && response.StatusCode != 404 {
 			tr.SetError()
 		}
+	} else {
+		// errorHandler will be invoked when err != nil, avoid double error
+		// logging.
 	}
 
 	return response, err
@@ -273,7 +273,14 @@ func (p *reverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 func (p *reverseProxy) errorHandler(w http.ResponseWriter, r *http.Request, err error) {
 	tr, _ := trace.FromContext(r.Context())
-	tr.Errorf("proxy: %v", err)
+	tr.Printf("backend error: %v", err)
+
+	// Mark it as an error, unless it was context.Canceled, which is normal:
+	// the client side has closed the connection.
+	if !errors.Is(err, context.Canceled) {
+		tr.SetError()
+	}
+
 	w.WriteHeader(http.StatusBadGateway)
 }
 
@@ -312,7 +319,7 @@ func WithLogging(name string, parent http.Handler) http.Handler {
 		tr.Printf("%d %s", sw.status, http.StatusText(sw.status))
 		tr.Printf("%d bytes", sw.length)
 
-		if sw.status >= 400 {
+		if sw.status >= 400 && sw.status != 404 {
 			tr.SetError()
 		}
 	})
