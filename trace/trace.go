@@ -12,7 +12,9 @@ import (
 	nettrace "golang.org/x/net/trace"
 )
 
-const contextKey = "blitiri.com.ar/go/gofer/trace.Trace"
+type key string
+
+const contextKey key = "blitiri.com.ar/go/gofer/trace.Trace"
 
 // A Trace represents an active request.
 type Trace struct {
