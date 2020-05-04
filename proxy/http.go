@@ -6,6 +6,7 @@ import (
 	"errors"
 	golog "log"
 	"net/http"
+	"net/http/cgi"
 	"net/http/httputil"
 	"net/url"
 	"strings"
@@ -49,6 +50,8 @@ func httpServer(conf config.HTTP) *http.Server {
 			mux.Handle(from, makeStatic(from, *toURL))
 		case "redirect":
 			mux.Handle(from, makeRedirect(from, *toURL))
+		case "cgi":
+			mux.Handle(from, makeCGI(from, *toURL))
 		default:
 			log.Fatalf("route %q -> %q: invalid destination scheme %q",
 				from, to, toURL.Scheme)
@@ -196,6 +199,49 @@ func makeStatic(from string, to url.URL) http.Handler {
 			http.ServeFile(w, r, to.Path)
 		}),
 	)
+}
+
+func makeCGI(from string, to url.URL) http.Handler {
+	from = stripDomain(from)
+	path := to.Path
+	if path == "" {
+		// This happens for relative paths, which are fine in this context.
+		path = to.Opaque
+	}
+	args := queryToArgs(to.RawQuery)
+
+	return WithLogging("http:cgi",
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			tr, _ := trace.FromContext(r.Context())
+			tr.Debugf("exec %q %q", path, args)
+			h := cgi.Handler{
+				Path:   path,
+				Args:   args,
+				Root:   from,
+				Logger: golog.New(tr, "", golog.Lshortfile),
+				Stderr: tr,
+			}
+			h.ServeHTTP(w, r)
+		}),
+	)
+}
+
+func queryToArgs(query string) []string {
+	args := []string{}
+	for query != "" {
+		comp := query
+		if i := strings.IndexAny(comp, "&;"); i >= 0 {
+			comp, query = comp[:i], comp[i+1:]
+		} else {
+			query = ""
+		}
+
+		comp, _ = url.QueryUnescape(comp)
+		args = append(args, comp)
+
+	}
+
+	return args
 }
 
 func makeRedirect(from string, to url.URL) http.Handler {

@@ -88,6 +88,19 @@ func (t *Trace) Finish() {
 	t.t.Finish()
 }
 
+// Write so Trace implements io.Writer, which means it can be used as output
+// for log.Logger.
+func (t *Trace) Write(p []byte) (n int, err error) {
+	lines := strings.Split(string(p), "\n")
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		t.Printf("%s", line)
+	}
+	return len(p), nil
+}
+
 // EventLog is used for tracing long-lived objects.
 type EventLog struct {
 	family string
