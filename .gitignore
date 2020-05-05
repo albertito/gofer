@@ -7,9 +7,11 @@
 # excluded.
 !.gitignore
 
-# The binary.
+# The binaries.
 gofer
+test/util/exp
 
 # Configuration and certificates, to prevent accidents.
 *.conf
 *.pem
+!test/*.conf

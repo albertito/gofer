@@ -1,0 +1,136 @@
+package main
+
+import (
+	"crypto/tls"
+	"crypto/x509"
+	"flag"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+)
+
+var exitCode int = 0
+
+func main() {
+	// The first arg is the URL, and then we shift.
+	url := os.Args[1]
+	os.Args = append([]string{os.Args[0]}, os.Args[2:]...)
+
+	var (
+		body = flag.String("body", "",
+			"expect body with these exact contents")
+		bodyRE = flag.String("bodyre", "",
+			"expect body matching these contents (regexp match)")
+		redir = flag.String("redir", "",
+			"expect a redirect to this URL")
+		status = flag.Int("status", 200,
+			"expect this status code")
+		verbose = flag.Bool("v", false,
+			"enable verbose output")
+		caCert = flag.String("cacert", "",
+			"file to read CA cert from")
+	)
+	flag.Parse()
+
+	client := &http.Client{
+		CheckRedirect: noRedirect,
+		Transport:     mkTransport(*caCert),
+	}
+
+	resp, err := client.Get(url)
+	if err != nil {
+		fatalf("error getting %q: %v\n", url, err)
+	}
+	defer resp.Body.Close()
+	rbody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		errorf("error reading body: %v\n", err)
+	}
+
+	if *verbose {
+		fmt.Printf("Request: %s\n", url)
+		fmt.Printf("Response:\n")
+		fmt.Printf("  %v  %v\n", resp.Proto, resp.Status)
+		ks := []string{}
+		for k, _ := range resp.Header {
+			ks = append(ks, k)
+		}
+		sort.Strings(ks)
+		for _, k := range ks {
+			fmt.Printf("  %v: %s\n", k,
+				strings.Join(resp.Header.Values(k), ", "))
+		}
+		fmt.Printf("\n")
+	}
+
+	if resp.StatusCode != *status {
+		errorf("status is not %d: %q\n", *status, resp.Status)
+	}
+
+	if *body != "" {
+		// Unescape the body to allow control characters more easily.
+		*body, _ = strconv.Unquote("\"" + *body + "\"")
+		if string(rbody) != *body {
+			errorf("unexpected body: %q\n", rbody)
+		}
+	}
+
+	if *bodyRE != "" {
+		matched, err := regexp.Match(*bodyRE, rbody)
+		if err != nil {
+			errorf("regexp error: %q", err)
+		}
+		if !matched {
+			errorf("body did not match regexp: %q\n", rbody)
+		}
+	}
+
+	if *redir != "" {
+		if loc := resp.Header.Get("Location"); loc != *redir {
+			errorf("unexpected redir location: %q\n", loc)
+		}
+	}
+
+	os.Exit(exitCode)
+}
+
+func noRedirect(req *http.Request, via []*http.Request) error {
+	return http.ErrUseLastResponse
+}
+
+func mkTransport(caCert string) *http.Transport {
+	if caCert == "" {
+		return nil
+	}
+
+	certs, err := ioutil.ReadFile(caCert)
+	if err != nil {
+		fatalf("error reading CA file %q: %v", caCert, err)
+	}
+
+	rootCAs := x509.NewCertPool()
+	if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
+		fatalf("error adding certs to root")
+	}
+
+	return &http.Transport{
+		TLSClientConfig: &tls.Config{
+			RootCAs: rootCAs,
+		},
+	}
+}
+
+func fatalf(s string, a ...interface{}) {
+	fmt.Fprintf(os.Stderr, s, a...)
+	os.Exit(1)
+}
+
+func errorf(s string, a ...interface{}) {
+	fmt.Fprintf(os.Stderr, s, a...)
+	exitCode = 1
+}
