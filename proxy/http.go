@@ -172,14 +172,24 @@ func adjustPath(req string, from string, to string) string {
 	return dst
 }
 
+func pathOrOpaque(u url.URL) string {
+	if u.Path != "" {
+		return u.Path
+	}
+
+	// This happens for relative paths, which are fine in this context.
+	return u.Opaque
+}
+
 func makeDir(from string, to url.URL) http.Handler {
 	from = stripDomain(from)
+	path := pathOrOpaque(to)
 
-	fs := http.FileServer(http.Dir(to.Path))
+	fs := http.FileServer(http.Dir(path))
 	return WithLogging("http:dir",
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tr, _ := trace.FromContext(r.Context())
-			tr.Printf("serving dir root %q", to.Path)
+			tr.Printf("serving dir root %q", path)
 
 			r.URL.Path = strings.TrimPrefix(r.URL.Path, from)
 			if r.URL.Path == "" || r.URL.Path[0] != '/' {
@@ -192,22 +202,20 @@ func makeDir(from string, to url.URL) http.Handler {
 }
 
 func makeStatic(from string, to url.URL) http.Handler {
+	path := pathOrOpaque(to)
+
 	return WithLogging("http:static",
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tr, _ := trace.FromContext(r.Context())
-			tr.Printf("statically serving %q", to.Path)
-			http.ServeFile(w, r, to.Path)
+			tr.Printf("statically serving %q", path)
+			http.ServeFile(w, r, path)
 		}),
 	)
 }
 
 func makeCGI(from string, to url.URL) http.Handler {
 	from = stripDomain(from)
-	path := to.Path
-	if path == "" {
-		// This happens for relative paths, which are fine in this context.
-		path = to.Opaque
-	}
+	path := pathOrOpaque(to)
 	args := queryToArgs(to.RawQuery)
 
 	return WithLogging("http:cgi",
