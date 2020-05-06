@@ -133,7 +133,7 @@ func TestSimple(t *testing.T) {
 }
 
 func testGet(t *testing.T, url string, expectedStatus int) {
-	//t.Helper()  -- Uncomment once Go 1.9 is commonplace.
+	t.Helper()
 	t.Logf("URL: %s", url)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -170,14 +170,40 @@ func TestJoinPath(t *testing.T) {
 		{"a/", "", "a/"},
 		{"a/", "b", "a/b"},
 		{"a/", "b/", "a/b/"},
+		{"a/", "/b/", "a/b/"},
 		{"/", "", "/"},
 		{"", "", "/"},
-		{"/", "/", "//"}, // Not sure if we want this, but ok for now.
+		{"/", "/", "/"},
 	}
 	for _, c := range cases {
 		got := joinPath(c.a, c.b)
 		if got != c.expected {
 			t.Errorf("join %q, %q = %q, expected %q", c.a, c.b, got, c.expected)
+		}
+	}
+}
+
+func TestAdjustPath(t *testing.T) {
+	cases := []struct{ from, to, req, expected string }{
+		{"/", "/", "/", "/"},
+		{"/", "/", "/a", "/a"},
+		{"/", "/", "/a/x", "/a/x"},
+		{"/a", "/", "/a", "/"},
+		{"/a", "/", "/a/", "/"},
+		{"/a", "/", "/a/x", "/x"},
+		{"/a/", "/", "/a/", "/"},
+		{"/a/", "/", "/a/x", "/x"},
+		{"/a/", "/b", "/a/", "/b"},
+		{"/a/", "/b", "/a/x", "/b/x"},
+		{"/p/q", "/r/s", "/p/q", "/r/s"},
+		{"/p/q", "/r/s", "/p/q", "/r/s"},
+		{"/p/q", "/r/s", "/p/q/x", "/r/s/x"},
+	}
+	for _, c := range cases {
+		got := adjustPath(c.req, c.from, c.to)
+		if got != c.expected {
+			t.Errorf("adjustPath(%q, %q, %q) = %q, expected %q",
+				c.req, c.from, c.to, got, c.expected)
 		}
 	}
 }

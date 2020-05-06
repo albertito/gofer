@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	golog "log"
 	"net/http"
 	"net/http/cgi"
@@ -138,9 +139,19 @@ func makeProxy(from string, to url.URL) http.Handler {
 // joinPath joins to HTTP paths. We can't use path.Join because it strips the
 // final "/", which may have meaning in URLs.
 func joinPath(a, b string) string {
-	if !strings.HasSuffix(a, "/") && !strings.HasPrefix(b, "/") {
-		a = a + "/"
+	if a == "" && b == "" {
+		return "/"
 	}
+	if a == "" || b == "" {
+		return a + b
+	}
+	if strings.HasSuffix(a, "/") && strings.HasPrefix(b, "/") {
+		return strings.TrimSuffix(a, "/") + b
+	}
+	if !strings.HasSuffix(a, "/") && !strings.HasPrefix(b, "/") {
+		return a + "/" + b
+	}
+
 	return a + b
 }
 
@@ -157,14 +168,24 @@ func adjustPath(req string, from string, to string) string {
 	// Strip "from" from the request path, so that if we have this config:
 	//
 	//   /a/ -> http://dst/b
-	//   www.example.com/p/ -> http://dst/q
+	//   /p/q -> http://dst/r/s
+	//   www.example.com/t/ -> http://dst/u
 	//
 	// then:
 	//   /a/x  goes to  http://dst/b/x (not http://dst/b/a/x)
-	//   www.example.com/p/x  goes to  http://dst/q/x
+	//   /p/q  goes to  http://dst/r/s
+	//   www.example.com/t/x  goes to  http://dst/u/x
 	//
 	// It is expected that `from` already has the domain removed using
 	// stripDomain.
+	//
+	// If req doesn't have from as prefix, then we panic.
+	if !strings.HasPrefix(req, from) {
+		panic(fmt.Errorf(
+			"adjustPath(req=%q, from=%q, to=%q): from is not prefix",
+			req, from, to))
+	}
+
 	dst := joinPath(to, strings.TrimPrefix(req, from))
 	if dst == "" || dst[0] != '/' {
 		dst = "/" + dst
