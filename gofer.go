@@ -12,8 +12,7 @@ import (
 
 // Flags.
 var (
-	configfile = flag.String("configfile", "gofer.conf",
-		"Configuration file")
+	configfile = flag.String("configfile", "gofer.yaml", "Configuration file")
 )
 
 func main() {
@@ -25,20 +24,16 @@ func main() {
 		log.Fatalf("error reading config file: %v", err)
 	}
 
-	for _, k := range conf.Undecoded() {
-		log.Infof("warning: undecoded config key: %q", k)
+	for addr, https := range conf.HTTPS {
+		go proxy.HTTPS(addr, https)
 	}
 
-	for _, https := range conf.HTTPS {
-		go proxy.HTTPS(*https)
+	for addr, http := range conf.HTTP {
+		go proxy.HTTP(addr, http)
 	}
 
-	for _, http := range conf.HTTP {
-		go proxy.HTTP(*http)
-	}
-
-	for _, raw := range conf.Raw {
-		go proxy.Raw(raw)
+	for addr, raw := range conf.Raw {
+		go proxy.Raw(addr, raw)
 	}
 
 	if conf.ControlAddr != "" {

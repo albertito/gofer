@@ -72,19 +72,21 @@ func TestMain(m *testing.M) {
 	pwd, _ := os.Getwd()
 
 	const configTemplate = `
-[[raw]]
-addr = "$RAW_ADDR"
-to = "$BACKEND_ADDR"
+raw:
+  "$RAW_ADDR":
+    to: "$BACKEND_ADDR"
 
-[[http]]
-addr = "$HTTP_ADDR"
-
-[http.routes]
-"/be/" = "$BACKEND_URL"
-"localhost/xy/" = "$BACKEND_URL"
-"/static/hola" = "static:$PWD/testdata/hola"
-"/dir/" = "dir:$PWD/testdata/"
-"/redir/" = "redirect:http://$HTTP_ADDR/dir/"
+http:
+  "$HTTP_ADDR":
+    proxy:
+      "/be/": "$BACKEND_URL"
+      "localhost/xy/": "$BACKEND_URL"
+    static:
+      "/static/hola": "$PWD/testdata/hola"
+    dir:
+      "/dir/": "$PWD/testdata/"
+    redirect:
+      "/redir/": "http://$HTTP_ADDR/dir/"
 `
 	configStr := strings.NewReplacer(
 		"$RAW_ADDR", rawAddr,
@@ -99,8 +101,8 @@ addr = "$HTTP_ADDR"
 		log.Fatalf("error loading test config: %v", err)
 	}
 
-	go Raw(conf.Raw[0])
-	go HTTP(*conf.HTTP[0])
+	go Raw(rawAddr, conf.Raw[rawAddr])
+	go HTTP(httpAddr, conf.HTTP[httpAddr])
 
 	waitForHTTPServer(httpAddr)
 	waitForHTTPServer(rawAddr)

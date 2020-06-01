@@ -12,6 +12,6 @@ gofer
 test/util/exp
 
 # Configuration and certificates, to prevent accidents.
-*.conf
+*.yaml
 *.pem
-!test/*.conf
+!test/*.yaml

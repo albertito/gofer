@@ -7,64 +7,59 @@ import (
 )
 
 func TestSimple(t *testing.T) {
+	// Note: no TABs in the contents, they are not valid indentation in yaml
+	// and the parser complains about "found character that cannot start any
+	// token".
 	const contents = `
-control_addr = "127.0.0.1:9081"
+control_addr: "127.0.0.1:9081"
 
-[[raw]]
-addr = ":995"
-certs = "/etc/letsencrypt/live/"
-to = "blerg.com:1995"
-to_tls = true
+raw:
+  ":995":
+    certs: "/etc/letsencrypt/live/"
+    to: "blerg.com:1995"
+    to_tls: true
 
-[[http]]
-addr = ":http"
-base_routes = "default"
+_proxy: &proxy
+  "/": "http://def/"
+  "/common": "http://common/"
 
-  [http.routes]
-    "/srv" = "http://srv/"
+http:
+  ":http":
+    proxy:
+      <<: *proxy
+      "/srv": "http://srv/"
 
-[[https]]
-addr = ":https"
-certs = "/etc/letsencrypt/live/"
-base_routes = "default"
-unknown_field = "x"
-
-  [https.routes]
-    "/" = "http://tlsoverrides/"
-    "/srv" = "http://srv2/"
-
-[routes.default]
-"/" = "http://def/"
-"/common" = "http://common/"
+https:
+  ":https":
+    certs: "/etc/letsencrypt/live/"
+    proxy:
+      <<: *proxy
+      "/": "http://tlsoverrides/"
+      "/srv": "http://srv2/"
 `
 
 	expected := Config{
 		ControlAddr: "127.0.0.1:9081",
-		Raw: []Raw{
-			Raw{
-				Addr:  ":995",
+		Raw: map[string]Raw{
+			":995": {
 				Certs: "/etc/letsencrypt/live/",
 				To:    "blerg.com:1995",
 				ToTLS: true,
 			},
 		},
-		HTTP: []*HTTP{
-			&HTTP{
-				Addr:       ":http",
-				BaseRoutes: "default",
-				RouteTable: RouteTable{
+		HTTP: map[string]HTTP{
+			":http": {
+				Proxy: map[string]string{
 					"/":       "http://def/",
 					"/common": "http://common/",
 					"/srv":    "http://srv/",
 				},
 			},
 		},
-		HTTPS: []*HTTPS{
-			&HTTPS{
+		HTTPS: map[string]HTTPS{
+			":https": {
 				HTTP: HTTP{
-					Addr:       ":https",
-					BaseRoutes: "default",
-					RouteTable: RouteTable{
+					Proxy: map[string]string{
 						"/":       "http://tlsoverrides/",
 						"/common": "http://common/",
 						"/srv":    "http://srv2/",
@@ -73,14 +68,6 @@ unknown_field = "x"
 				Certs: "/etc/letsencrypt/live/",
 			},
 		},
-		Routes: map[string]RouteTable{
-			"default": RouteTable{
-				"/":       "http://def/",
-				"/common": "http://common/",
-			},
-		},
-
-		undecoded: []string{"https.unknown_field"},
 	}
 
 	conf, err := LoadString(contents)
@@ -93,11 +80,4 @@ unknown_field = "x"
 		t.Errorf("  expected: %v", expected.String())
 		t.Errorf("  got:      %v", conf.String())
 	}
-
-	if !reflect.DeepEqual(conf.Undecoded(), expected.Undecoded()) {
-		t.Errorf("undecoded is not as expected")
-		t.Errorf("  expected: %q", expected.Undecoded())
-		t.Errorf("  got:      %q", conf.Undecoded())
-	}
-
 }

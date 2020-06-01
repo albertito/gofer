@@ -20,11 +20,11 @@ import (
 	"blitiri.com.ar/go/systemd"
 )
 
-func httpServer(conf config.HTTP) *http.Server {
-	ev := trace.NewEventLog("httpserver", conf.Addr)
+func httpServer(addr string, conf config.HTTP) *http.Server {
+	ev := trace.NewEventLog("httpserver", addr)
 
 	srv := &http.Server{
-		Addr: conf.Addr,
+		Addr: addr,
 
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
@@ -35,56 +35,57 @@ func httpServer(conf config.HTTP) *http.Server {
 	// Load route table.
 	mux := http.NewServeMux()
 	srv.Handler = mux
-	for from, to := range conf.RouteTable {
-		toURL, err := url.Parse(to)
-		if err != nil {
-			log.Fatalf("route %q -> %q: destination is not a valid URL: %v",
-				from, to, err)
-		}
-		log.Infof("%s route %q -> %q", srv.Addr, from, toURL)
-		switch toURL.Scheme {
-		case "http", "https":
-			mux.Handle(from, makeProxy(from, *toURL))
-		case "dir":
-			mux.Handle(from, makeDir(from, *toURL))
-		case "static":
-			mux.Handle(from, makeStatic(from, *toURL))
-		case "redirect":
-			mux.Handle(from, makeRedirect(from, *toURL))
-		case "cgi":
-			mux.Handle(from, makeCGI(from, *toURL))
-		default:
-			log.Fatalf("route %q -> %q: invalid destination scheme %q",
-				from, to, toURL.Scheme)
+
+	routes := []struct {
+		name        string
+		table       map[string]string
+		makeHandler func(string, url.URL) http.Handler
+	}{
+		{"proxy", conf.Proxy, makeProxy},
+		{"dir", conf.Dir, makeDir},
+		{"static", conf.Static, makeStatic},
+		{"redirect", conf.Redirect, makeRedirect},
+		{"cgi", conf.CGI, makeCGI},
+	}
+	for _, r := range routes {
+		for from, to := range r.table {
+			toURL, err := url.Parse(to)
+			if err != nil {
+				log.Fatalf(
+					"route %s %q -> %q: destination is not a valid URL: %v",
+					r.name, from, to, err)
+			}
+			log.Infof("%s route %q -> %s %q", srv.Addr, from, r.name, toURL)
+			mux.Handle(from, r.makeHandler(from, *toURL))
 		}
 	}
 
 	return srv
 }
 
-func HTTP(conf config.HTTP) {
-	srv := httpServer(conf)
-	lis, err := systemd.Listen("tcp", conf.Addr)
+func HTTP(addr string, conf config.HTTP) {
+	srv := httpServer(addr, conf)
+	lis, err := systemd.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("%s error listening: %v", conf.Addr, err)
+		log.Fatalf("%s error listening: %v", addr, err)
 	}
-	log.Infof("%s http proxy starting on %q", conf.Addr, lis.Addr())
+	log.Infof("%s http proxy starting on %q", addr, lis.Addr())
 	err = srv.Serve(lis)
-	log.Fatalf("%s http proxy exited: %v", conf.Addr, err)
+	log.Fatalf("%s http proxy exited: %v", addr, err)
 }
 
-func HTTPS(conf config.HTTPS) {
+func HTTPS(addr string, conf config.HTTPS) {
 	var err error
-	srv := httpServer(conf.HTTP)
+	srv := httpServer(addr, conf.HTTP)
 
 	srv.TLSConfig, err = util.LoadCerts(conf.Certs)
 	if err != nil {
-		log.Fatalf("%s error loading certs: %v", conf.Addr, err)
+		log.Fatalf("%s error loading certs: %v", addr, err)
 	}
 
-	rawLis, err := systemd.Listen("tcp", conf.Addr)
+	rawLis, err := systemd.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("%s error listening: %v", conf.Addr, err)
+		log.Fatalf("%s error listening: %v", addr, err)
 	}
 
 	// We need to set the NextProtos manually before creating the TLS
@@ -93,9 +94,9 @@ func HTTPS(conf config.HTTPS) {
 		"h2", "http/1.1")
 	lis := tls.NewListener(rawLis, srv.TLSConfig)
 
-	log.Infof("%s https proxy starting on %q", conf.Addr, lis.Addr())
+	log.Infof("%s https proxy starting on %q", addr, lis.Addr())
 	err = srv.Serve(lis)
-	log.Fatalf("%s https proxy exited: %v", conf.Addr, err)
+	log.Fatalf("%s https proxy exited: %v", addr, err)
 }
 
 func makeProxy(from string, to url.URL) http.Handler {
@@ -276,18 +277,12 @@ func queryToArgs(query string) []string {
 func makeRedirect(from string, to url.URL) http.Handler {
 	from = stripDomain(from)
 
-	dst, err := url.Parse(to.Opaque)
-	if err != nil {
-		log.Fatalf("Invalid destination %q for redirect route: %v",
-			to.Opaque, err)
-	}
-
 	return WithLogging("http:redirect",
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tr, _ := trace.FromContext(r.Context())
-			target := *dst
+			target := to
 			target.RawQuery = r.URL.RawQuery
-			target.Path = adjustPath(r.URL.Path, from, dst.Path)
+			target.Path = adjustPath(r.URL.Path, from, to.Path)
 			tr.Printf("redirect to %q", target.String())
 
 			http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)

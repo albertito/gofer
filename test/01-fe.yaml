@@ -1,0 +1,37 @@
+
+control_addr: "127.0.0.1:8440"
+
+_proxy: &proxyroutes
+  "/dir/": "http://localhost:8450/dir/"
+  "/file": "http://localhost:8450/file"
+  "/cgi/": "http://localhost:8450/cgi/"
+  "/bad/unreacheable": "http://localhost:1/"
+  "/bad/empty": "http:"
+  "/dar/": "http://localhost:8450/dir/"
+
+_redirect: &redirect
+  "/gogo/": "https://google.com"
+
+
+http:
+  ":8441":
+    proxy: *proxyroutes
+    redirect: *redirect
+
+https:
+  ":8442":
+    certs: ".certs"
+    proxy: *proxyroutes
+    redirect: *redirect
+
+
+
+# Raw proxy to the same backend.
+raw:
+  ":8445":
+    to: "localhost:8450"
+
+  ":8446":
+    to: "localhost:8450"
+    certs: ".certs"
+

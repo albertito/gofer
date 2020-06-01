@@ -85,13 +85,13 @@ function snoop() {
 echo "## Setup"
 
 # Launch the backend serving static files and CGI.
-gofer -logfile=.01-be.log -configfile=01-be.conf
+gofer -logfile=.01-be.log -configfile=01-be.yaml
 DIR_PID=$PID
 wait_until_ready 8450
 
 # Launch the test instance.
 generate_certs
-gofer -logfile=.01-fe.log -configfile=01-fe.conf
+gofer -logfile=.01-fe.log -configfile=01-fe.yaml
 wait_until_ready 8441  # http
 wait_until_ready 8442  # https
 wait_until_ready 8445  # raw

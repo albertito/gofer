@@ -3,7 +3,7 @@ Description=gofer proxy
 Requires=gofer-http.socket gofer-https.socket
 
 [Service]
-ExecStart=/usr/local/bin/gofer -configfile=/etc/gofer.conf
+ExecStart=/usr/local/bin/gofer -configfile=/etc/gofer.yaml
 
 Type=simple
 Restart=always

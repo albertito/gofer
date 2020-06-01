@@ -2,36 +2,31 @@
 package config
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
-	"strings"
 
-	"github.com/BurntSushi/toml"
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	ControlAddr string `toml:"control_addr"`
+	ControlAddr string `yaml:"control_addr"`
 
-	HTTP  []*HTTP
-	HTTPS []*HTTPS
-	Raw   []Raw
-
-	// Map of name -> routes for HTTP(S).
-	Routes map[string]RouteTable
-
-	// Undecoded fields - private so we don't serialize them.
-	undecoded []string
+	// Map address -> config.
+	HTTP  map[string]HTTP
+	HTTPS map[string]HTTPS
+	Raw   map[string]Raw
 }
 
 type HTTP struct {
-	Addr       string
-	RouteTable RouteTable `toml:"routes",omitempty`
-	BaseRoutes string     `toml:"base_routes"`
+	Proxy    map[string]string
+	Dir      map[string]string
+	Static   map[string]string
+	Redirect map[string]string
+	CGI      map[string]string
 }
 
 type HTTPS struct {
-	HTTP
+	HTTP  `yaml:",inline"`
 	Certs string
 }
 
@@ -39,23 +34,7 @@ type Raw struct {
 	Addr  string
 	Certs string
 	To    string
-	ToTLS bool `toml:"to_tls",omitempty`
-}
-
-type RouteTable map[string]string
-
-// mergeRoutes merges the table src into dst, by adding the entries in src
-// that are missing from dst.
-func mergeRoutes(src, dst RouteTable) {
-	for k, v := range src {
-		if _, ok := dst[k]; !ok {
-			dst[k] = v
-		}
-	}
-}
-
-func (c Config) Undecoded() []string {
-	return c.undecoded
+	ToTLS bool `yaml:"to_tls"`
 }
 
 func (c Config) String() string {
@@ -67,12 +46,8 @@ func (c Config) String() string {
 }
 
 func (c Config) ToString() (string, error) {
-	buf := new(bytes.Buffer)
-	if err := toml.NewEncoder(buf).Encode(c); err != nil {
-		return "", err
-	}
-
-	return buf.String(), nil
+	d, err := yaml.Marshal(&c)
+	return string(d), err
 }
 
 func Load(filename string) (*Config, error) {
@@ -85,34 +60,6 @@ func Load(filename string) (*Config, error) {
 
 func LoadString(contents string) (*Config, error) {
 	conf := &Config{}
-	md, err := toml.Decode(contents, conf)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing config: %v", err)
-	}
-
-	// Save undecoded keys so they can be accessed later (e.g. for debugging
-	// or checking).
-	for _, key := range md.Undecoded() {
-		conf.undecoded = append(conf.undecoded, strings.Join(key, "."))
-	}
-
-	// Link routes.
-	for _, https := range conf.HTTPS {
-		if https.RouteTable == nil {
-			https.RouteTable = RouteTable{}
-		}
-		if https.BaseRoutes != "" {
-			mergeRoutes(conf.Routes[https.BaseRoutes], https.RouteTable)
-		}
-	}
-	for _, http := range conf.HTTP {
-		if http.RouteTable == nil {
-			http.RouteTable = RouteTable{}
-		}
-		if http.BaseRoutes != "" {
-			mergeRoutes(conf.Routes[http.BaseRoutes], http.RouteTable)
-		}
-	}
-
-	return conf, nil
+	err := yaml.Unmarshal([]byte(contents), conf)
+	return conf, err
 }
