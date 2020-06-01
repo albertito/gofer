@@ -6,7 +6,7 @@ import (
 
 	"blitiri.com.ar/go/gofer/config"
 	"blitiri.com.ar/go/gofer/debug"
-	"blitiri.com.ar/go/gofer/proxy"
+	"blitiri.com.ar/go/gofer/server"
 	"blitiri.com.ar/go/log"
 )
 
@@ -25,15 +25,15 @@ func main() {
 	}
 
 	for addr, https := range conf.HTTPS {
-		go proxy.HTTPS(addr, https)
+		go server.HTTPS(addr, https)
 	}
 
 	for addr, http := range conf.HTTP {
-		go proxy.HTTP(addr, http)
+		go server.HTTP(addr, http)
 	}
 
 	for addr, raw := range conf.Raw {
-		go proxy.Raw(addr, raw)
+		go server.Raw(addr, raw)
 	}
 
 	if conf.ControlAddr != "" {
