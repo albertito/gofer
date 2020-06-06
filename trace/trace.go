@@ -4,7 +4,6 @@ package trace
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"blitiri.com.ar/go/log"
@@ -42,7 +41,7 @@ func (t *Trace) Printf(format string, a ...interface{}) {
 	t.t.LazyPrintf(format, a...)
 
 	log.Log(log.Debug, 1, "%#p %s %s: %s", t, t.family, t.title,
-		quote(fmt.Sprintf(format, a...)))
+		fmt.Sprintf(format, a...))
 }
 
 // Debugf adds this message to the trace's log, with a debugging level.
@@ -50,7 +49,7 @@ func (t *Trace) Debugf(format string, a ...interface{}) {
 	t.t.LazyPrintf(format, a...)
 
 	log.Log(log.Debug, 1, "%#p %s %s: %s",
-		t, t.family, t.title, quote(fmt.Sprintf(format, a...)))
+		t, t.family, t.title, fmt.Sprintf(format, a...))
 }
 
 // Errorf adds this message to the trace's log, with an error level.
@@ -61,7 +60,7 @@ func (t *Trace) Errorf(format string, a ...interface{}) error {
 	t.t.LazyPrintf("error: %v", err)
 
 	log.Log(log.Info, 1, "%#p %s %s error: %s", t, t.family, t.title,
-		quote(err.Error()))
+		err.Error())
 	return err
 }
 
@@ -72,7 +71,7 @@ func (t *Trace) Error(err error) error {
 	t.t.LazyPrintf("error: %v", err)
 
 	log.Log(log.Info, 1, "%#p %s %s error: %s", t, t.family, t.title,
-		quote(err.Error()))
+		err.Error())
 
 	return err
 }
@@ -118,7 +117,7 @@ func (e *EventLog) Printf(format string, a ...interface{}) {
 	e.e.Printf(format, a...)
 
 	log.Log(log.Debug, 1, "%#p %s %s: %s", e, e.family, e.title,
-		quote(fmt.Sprintf(format, a...)))
+		fmt.Sprintf(format, a...))
 }
 
 // Debugf adds the message to the EventLog, with a debugging level.
@@ -126,7 +125,7 @@ func (e *EventLog) Debugf(format string, a ...interface{}) {
 	e.e.Printf(format, a...)
 
 	log.Log(log.Debug, 1, "%#p %s %s: %s", e, e.family, e.title,
-		quote(fmt.Sprintf(format, a...)))
+		fmt.Sprintf(format, a...))
 }
 
 // Errorf adds the message to the EventLog, with an error level.
@@ -135,7 +134,7 @@ func (e *EventLog) Errorf(format string, a ...interface{}) error {
 	e.e.Errorf("error: %v", err)
 
 	log.Log(log.Info, 1, "%#p %s %s: error: %s",
-		e, e.family, e.title, quote(err.Error()))
+		e, e.family, e.title, err.Error())
 
 	return err
 }
@@ -151,9 +150,4 @@ func (e *EventLog) Write(p []byte) (n int, err error) {
 		e.Printf("%s", line)
 	}
 	return len(p), nil
-}
-
-func quote(s string) string {
-	qs := strconv.Quote(s)
-	return qs[1 : len(qs)-1]
 }
