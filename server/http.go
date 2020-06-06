@@ -60,6 +60,28 @@ func httpServer(addr string, conf config.HTTP) *http.Server {
 		}
 	}
 
+	// Wrap the authentication handlers.
+	if len(conf.Auth) > 0 {
+		authMux := http.NewServeMux()
+		authMux.Handle("/", srv.Handler)
+		for path, dbPath := range conf.Auth {
+			users, err := LoadAuthFile(dbPath)
+			if err != nil {
+				log.Fatalf(
+					"failed to load auth file %q: %v", dbPath, err)
+			}
+			authMux.Handle(path,
+				WithTrace("http:auth",
+					&AuthWrapper{
+						handler: mux,
+						users:   users,
+					}))
+
+			log.Infof("%s auth %q -> %q", srv.Addr, path, dbPath)
+		}
+		srv.Handler = authMux
+	}
+
 	return srv
 }
 
@@ -208,7 +230,7 @@ func makeDir(from string, to url.URL, conf *config.HTTP) http.Handler {
 	path := pathOrOpaque(to)
 
 	fs := http.FileServer(NewFS(http.Dir(path), conf.DirOpts[from]))
-	return WithLogging("http:dir",
+	return WithTrace("http:dir", WithLogging(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tr, _ := trace.FromContext(r.Context())
 			tr.Printf("serving dir root %q", path)
@@ -220,19 +242,19 @@ func makeDir(from string, to url.URL, conf *config.HTTP) http.Handler {
 			tr.Printf("adjusted path: %q", r.URL.Path)
 			fs.ServeHTTP(w, r)
 		}),
-	)
+	))
 }
 
 func makeStatic(from string, to url.URL, conf *config.HTTP) http.Handler {
 	path := pathOrOpaque(to)
 
-	return WithLogging("http:static",
+	return WithTrace("http:static", WithLogging(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tr, _ := trace.FromContext(r.Context())
 			tr.Printf("statically serving %q", path)
 			http.ServeFile(w, r, path)
 		}),
-	)
+	))
 }
 
 func makeCGI(from string, to url.URL, conf *config.HTTP) http.Handler {
@@ -240,7 +262,7 @@ func makeCGI(from string, to url.URL, conf *config.HTTP) http.Handler {
 	path := pathOrOpaque(to)
 	args := queryToArgs(to.RawQuery)
 
-	return WithLogging("http:cgi",
+	return WithTrace("http:cgi", WithLogging(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tr, _ := trace.FromContext(r.Context())
 			tr.Debugf("exec %q %q", path, args)
@@ -253,7 +275,7 @@ func makeCGI(from string, to url.URL, conf *config.HTTP) http.Handler {
 			}
 			h.ServeHTTP(w, r)
 		}),
-	)
+	))
 }
 
 func queryToArgs(query string) []string {
@@ -277,7 +299,7 @@ func queryToArgs(query string) []string {
 func makeRedirect(from string, to url.URL, conf *config.HTTP) http.Handler {
 	from = stripDomain(from)
 
-	return WithLogging("http:redirect",
+	return WithTrace("http:redirect", WithLogging(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tr, _ := trace.FromContext(r.Context())
 			target := to
@@ -287,7 +309,7 @@ func makeRedirect(from string, to url.URL, conf *config.HTTP) http.Handler {
 
 			http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
 		}),
-	)
+	))
 }
 
 type loggingTransport struct{}
@@ -372,19 +394,32 @@ func (w *statusWriter) Write(b []byte) (int, error) {
 	return n, err
 }
 
-func WithLogging(name string, parent http.Handler) http.Handler {
+func WithTrace(name string, parent http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tr := trace.New(name, r.Host+r.URL.String())
-		defer tr.Finish()
+		tr, ok := trace.FromContext(r.Context())
+		if !ok {
+			tr = trace.New(name, r.Host+r.URL.String())
+			defer tr.Finish()
 
-		// Associate the trace with this request.
-		r = r.WithContext(trace.NewContext(r.Context(), tr))
+			// Associate the trace with this request.
+			r = r.WithContext(trace.NewContext(r.Context(), tr))
+
+			// Log the request on creation.
+			tr.Printf("%s %s %s %s %s",
+				r.RemoteAddr, r.Proto, r.Method, r.Host, r.URL.String())
+		}
+
+		parent.ServeHTTP(w, r)
+	})
+}
+
+func WithLogging(parent http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tr, _ := trace.FromContext(r.Context())
 
 		// Wrap the writer so we can get output information.
 		sw := statusWriter{ResponseWriter: w}
 
-		tr.Printf("%s %s %s %s %s",
-			r.RemoteAddr, r.Proto, r.Method, r.Host, r.URL.String())
 		parent.ServeHTTP(&sw, r)
 		tr.Printf("%d %s", sw.status, http.StatusText(sw.status))
 		tr.Printf("%d bytes", sw.length)

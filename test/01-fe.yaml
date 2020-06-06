@@ -3,6 +3,7 @@ control_addr: "127.0.0.1:8440"
 
 _proxy: &proxyroutes
   "/dir/": "http://localhost:8450/dir/"
+  "/authdir/": "http://localhost:8450/authdir/"
   "/file": "http://localhost:8450/file"
   "/cgi/": "http://localhost:8450/cgi/"
   "/bad/unreacheable": "http://localhost:1/"

@@ -25,6 +25,8 @@ type HTTP struct {
 	Redirect map[string]string
 	CGI      map[string]string
 
+	Auth map[string]string
+
 	DirOpts map[string]DirOpts
 }
 

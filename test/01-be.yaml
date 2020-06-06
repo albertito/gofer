@@ -5,11 +5,12 @@ http:
   ":8450":
     dir:
       "/dir/": "testdata/dir"
+      "/authdir/": "testdata/dir"
     static:
       "/file": "testdata/file"
       "/file/second": "testdata/dir/ñaca"
     cgi:
-      "/cgi": "testdata/cgi.sh?param 1;param 2"
+      "/cgi/": "testdata/cgi.sh?param 1;param 2"
 
     diropts:
       "/dir/":
@@ -18,4 +19,8 @@ http:
           "/withindex/": false
           "/withoutindex/": false
         exclude: ["/ignored\\..*"]
+
+    auth:
+      "/authdir/ñaca": "testdata/authdb.yaml"
+      "/authdir/withoutindex/": "testdata/authdb.yaml"
 
