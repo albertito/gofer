@@ -111,9 +111,21 @@ do
 	exp $base/file -body "ñaca\n"
 
 	exp $base/dir -status 301 -redir /dir/
+
 	exp $base/dir/ -bodyre '<a href="%C3%B1aca">ñaca</a>'
+	exp $base/dir/ -bodyre '>withindex/<'
+	exp $base/dir/ -bodyre '>withoutindex/<'
+	exp $base/dir/ -bodynotre 'ignored'
+
 	exp $base/dir/hola -body 'hola marola\n'
 	exp $base/dir/ñaca -body "tracañaca\n"
+	exp $base/dir/ignored.file -status 404
+
+	exp $base/dir/withindex -status 301 -redir withindex/
+	exp $base/dir/withindex/ -bodyre 'This is the index.'
+	exp $base/dir/withoutindex -status 404
+	exp $base/dir/withoutindex/ -status 404
+	exp $base/dir/withoutindex/chau -body 'chau\n'
 
 	exp $base/cgi/ -bodyre '"param 1" "param 2"'
 	exp "$base/cgi/?cucu=melo&a;b" -bodyre 'QUERY_STRING=cucu=melo&a;b\n'

@@ -39,7 +39,7 @@ func httpServer(addr string, conf config.HTTP) *http.Server {
 	routes := []struct {
 		name        string
 		table       map[string]string
-		makeHandler func(string, url.URL) http.Handler
+		makeHandler func(string, url.URL, *config.HTTP) http.Handler
 	}{
 		{"proxy", conf.Proxy, makeProxy},
 		{"dir", conf.Dir, makeDir},
@@ -56,7 +56,7 @@ func httpServer(addr string, conf config.HTTP) *http.Server {
 					r.name, from, to, err)
 			}
 			log.Infof("%s route %q -> %s %q", srv.Addr, from, r.name, toURL)
-			mux.Handle(from, r.makeHandler(from, *toURL))
+			mux.Handle(from, r.makeHandler(from, *toURL, &conf))
 		}
 	}
 
@@ -99,7 +99,7 @@ func HTTPS(addr string, conf config.HTTPS) {
 	log.Fatalf("%s https proxy exited: %v", addr, err)
 }
 
-func makeProxy(from string, to url.URL) http.Handler {
+func makeProxy(from string, to url.URL, conf *config.HTTP) http.Handler {
 	proxy := &httputil.ReverseProxy{}
 	proxy.Transport = transport
 
@@ -203,11 +203,11 @@ func pathOrOpaque(u url.URL) string {
 	return u.Opaque
 }
 
-func makeDir(from string, to url.URL) http.Handler {
+func makeDir(from string, to url.URL, conf *config.HTTP) http.Handler {
 	from = stripDomain(from)
 	path := pathOrOpaque(to)
 
-	fs := http.FileServer(http.Dir(path))
+	fs := http.FileServer(NewFS(http.Dir(path), conf.DirOpts[from]))
 	return WithLogging("http:dir",
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tr, _ := trace.FromContext(r.Context())
@@ -223,7 +223,7 @@ func makeDir(from string, to url.URL) http.Handler {
 	)
 }
 
-func makeStatic(from string, to url.URL) http.Handler {
+func makeStatic(from string, to url.URL, conf *config.HTTP) http.Handler {
 	path := pathOrOpaque(to)
 
 	return WithLogging("http:static",
@@ -235,7 +235,7 @@ func makeStatic(from string, to url.URL) http.Handler {
 	)
 }
 
-func makeCGI(from string, to url.URL) http.Handler {
+func makeCGI(from string, to url.URL, conf *config.HTTP) http.Handler {
 	from = stripDomain(from)
 	path := pathOrOpaque(to)
 	args := queryToArgs(to.RawQuery)
@@ -274,7 +274,7 @@ func queryToArgs(query string) []string {
 	return args
 }
 
-func makeRedirect(from string, to url.URL) http.Handler {
+func makeRedirect(from string, to url.URL, conf *config.HTTP) http.Handler {
 	from = stripDomain(from)
 
 	return WithLogging("http:redirect",

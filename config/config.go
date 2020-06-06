@@ -4,6 +4,7 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
+	"regexp"
 
 	"gopkg.in/yaml.v3"
 )
@@ -23,11 +24,18 @@ type HTTP struct {
 	Static   map[string]string
 	Redirect map[string]string
 	CGI      map[string]string
+
+	DirOpts map[string]DirOpts
 }
 
 type HTTPS struct {
 	HTTP  `yaml:",inline"`
 	Certs string
+}
+
+type DirOpts struct {
+	Listing map[string]bool
+	Exclude []Regexp
 }
 
 type Raw struct {
@@ -62,4 +70,24 @@ func LoadString(contents string) (*Config, error) {
 	conf := &Config{}
 	err := yaml.Unmarshal([]byte(contents), conf)
 	return conf, err
+}
+
+// Wrapper to simplify regexp in configuration.
+type Regexp struct {
+	*regexp.Regexp
+}
+
+func (re *Regexp) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err != nil {
+		return err
+	}
+
+	rx, err := regexp.Compile("^(?:" + s + ")$")
+	if err != nil {
+		return err
+	}
+
+	re.Regexp = rx
+	return nil
 }

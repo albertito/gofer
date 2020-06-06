@@ -26,6 +26,8 @@ func main() {
 			"expect body with these exact contents")
 		bodyRE = flag.String("bodyre", "",
 			"expect body matching these contents (regexp match)")
+		bodyNotRE = flag.String("bodynotre", "",
+			"expect body NOT matching these contents (regexp match)")
 		redir = flag.String("redir", "",
 			"expect a redirect to this URL")
 		status = flag.Int("status", 200,
@@ -87,6 +89,16 @@ func main() {
 		}
 		if !matched {
 			errorf("body did not match regexp: %q\n", rbody)
+		}
+	}
+
+	if *bodyNotRE != "" {
+		matched, err := regexp.Match(*bodyNotRE, rbody)
+		if err != nil {
+			errorf("regexp error: %q", err)
+		}
+		if matched {
+			errorf("body matched regexp: %q\n", rbody)
 		}
 	}
 

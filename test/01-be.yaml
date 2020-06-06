@@ -4,9 +4,18 @@ control_addr: "127.0.0.1:8459"
 http:
   ":8450":
     dir:
-      "/dir": "testdata/dir"
+      "/dir/": "testdata/dir"
     static:
       "/file": "testdata/file"
       "/file/second": "testdata/dir/ñaca"
     cgi:
       "/cgi": "testdata/cgi.sh?param 1;param 2"
+
+    diropts:
+      "/dir/":
+        listing:
+          "/": true
+          "/withindex/": false
+          "/withoutindex/": false
+        exclude: ["/ignored\\..*"]
+
