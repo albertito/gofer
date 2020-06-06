@@ -34,6 +34,8 @@ func main() {
 			"expect this status code")
 		verbose = flag.Bool("v", false,
 			"enable verbose output")
+		hdrRE = flag.String("hdrre", "",
+			"expect a header matching these contents (regexp match)")
 		caCert = flag.String("cacert", "",
 			"file to read CA cert from")
 	)
@@ -85,7 +87,7 @@ func main() {
 	if *bodyRE != "" {
 		matched, err := regexp.Match(*bodyRE, rbody)
 		if err != nil {
-			errorf("regexp error: %q", err)
+			errorf("regexp error: %q\n", err)
 		}
 		if !matched {
 			errorf("body did not match regexp: %q\n", rbody)
@@ -95,7 +97,7 @@ func main() {
 	if *bodyNotRE != "" {
 		matched, err := regexp.Match(*bodyNotRE, rbody)
 		if err != nil {
-			errorf("regexp error: %q", err)
+			errorf("regexp error: %q\n", err)
 		}
 		if matched {
 			errorf("body matched regexp: %q\n", rbody)
@@ -105,6 +107,28 @@ func main() {
 	if *redir != "" {
 		if loc := resp.Header.Get("Location"); loc != *redir {
 			errorf("unexpected redir location: %q\n", loc)
+		}
+	}
+
+	if *hdrRE != "" {
+		match := false
+	outer:
+		for k, vs := range resp.Header {
+			for _, v := range vs {
+				hdr := fmt.Sprintf("%s: %s", k, v)
+				matched, err := regexp.MatchString(*hdrRE, hdr)
+				if err != nil {
+					errorf("regexp error: %q\n", err)
+				}
+				if matched {
+					match = true
+					break outer
+				}
+			}
+		}
+
+		if !match {
+			errorf("header did not match: %v\n", resp.Header)
 		}
 	}
 

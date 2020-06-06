@@ -27,7 +27,8 @@ type HTTP struct {
 
 	Auth map[string]string
 
-	DirOpts map[string]DirOpts
+	DirOpts   map[string]DirOpts
+	SetHeader map[string]map[string]string
 }
 
 type HTTPS struct {

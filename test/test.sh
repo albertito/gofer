@@ -152,6 +152,9 @@ do
 	exp $base/authdir/withoutindex -status 301
 	exp $base/authdir/withoutindex/ -status 401
 	exp $base/authdir/withoutindex/chau -status 401
+
+	# Additional headers.
+	exp $base/file -hdrre "X-My-Header: my lovely header"
 done
 
 # Good auth.

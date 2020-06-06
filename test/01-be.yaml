@@ -24,3 +24,7 @@ http:
       "/authdir/ñaca": "testdata/authdb.yaml"
       "/authdir/withoutindex/": "testdata/authdb.yaml"
 
+    setheader:
+      "/file":
+        "X-My-Header": "my lovely header"
+

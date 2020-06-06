@@ -71,16 +71,28 @@ func httpServer(addr string, conf config.HTTP) *http.Server {
 					"failed to load auth file %q: %v", dbPath, err)
 			}
 			authMux.Handle(path,
-				WithTrace("http:auth",
-					&AuthWrapper{
-						handler: mux,
-						users:   users,
-					}))
+				&AuthWrapper{
+					handler: srv.Handler,
+					users:   users,
+				})
 
 			log.Infof("%s auth %q -> %q", srv.Addr, path, dbPath)
 		}
 		srv.Handler = authMux
 	}
+
+	// Extra headers.
+	if len(conf.SetHeader) > 0 {
+		hdrMux := http.NewServeMux()
+		hdrMux.Handle("/", srv.Handler)
+		for path, extraHdrs := range conf.SetHeader {
+			hdrMux.Handle(path, SetHeader(srv.Handler, extraHdrs))
+			log.Infof("%s add headers %q -> %q", srv.Addr, path, extraHdrs)
+		}
+		srv.Handler = hdrMux
+	}
+
+	srv.Handler = WithTrace("http@"+srv.Addr, srv.Handler)
 
 	return srv
 }
@@ -230,7 +242,7 @@ func makeDir(from string, to url.URL, conf *config.HTTP) http.Handler {
 	path := pathOrOpaque(to)
 
 	fs := http.FileServer(NewFS(http.Dir(path), conf.DirOpts[from]))
-	return WithTrace("http:dir", WithLogging(
+	return WithLogging(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tr, _ := trace.FromContext(r.Context())
 			tr.Printf("serving dir root %q", path)
@@ -242,19 +254,19 @@ func makeDir(from string, to url.URL, conf *config.HTTP) http.Handler {
 			tr.Printf("adjusted path: %q", r.URL.Path)
 			fs.ServeHTTP(w, r)
 		}),
-	))
+	)
 }
 
 func makeStatic(from string, to url.URL, conf *config.HTTP) http.Handler {
 	path := pathOrOpaque(to)
 
-	return WithTrace("http:static", WithLogging(
+	return WithLogging(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tr, _ := trace.FromContext(r.Context())
 			tr.Printf("statically serving %q", path)
 			http.ServeFile(w, r, path)
 		}),
-	))
+	)
 }
 
 func makeCGI(from string, to url.URL, conf *config.HTTP) http.Handler {
@@ -262,7 +274,7 @@ func makeCGI(from string, to url.URL, conf *config.HTTP) http.Handler {
 	path := pathOrOpaque(to)
 	args := queryToArgs(to.RawQuery)
 
-	return WithTrace("http:cgi", WithLogging(
+	return WithLogging(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tr, _ := trace.FromContext(r.Context())
 			tr.Debugf("exec %q %q", path, args)
@@ -275,7 +287,7 @@ func makeCGI(from string, to url.URL, conf *config.HTTP) http.Handler {
 			}
 			h.ServeHTTP(w, r)
 		}),
-	))
+	)
 }
 
 func queryToArgs(query string) []string {
@@ -299,7 +311,7 @@ func queryToArgs(query string) []string {
 func makeRedirect(from string, to url.URL, conf *config.HTTP) http.Handler {
 	from = stripDomain(from)
 
-	return WithTrace("http:redirect", WithLogging(
+	return WithLogging(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tr, _ := trace.FromContext(r.Context())
 			target := to
@@ -309,7 +321,7 @@ func makeRedirect(from string, to url.URL, conf *config.HTTP) http.Handler {
 
 			http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
 		}),
-	))
+	)
 }
 
 type loggingTransport struct{}
@@ -392,6 +404,21 @@ func (w *statusWriter) Write(b []byte) (int, error) {
 	n, err := w.ResponseWriter.Write(b)
 	w.length += n
 	return n, err
+}
+
+func SetHeader(parent http.Handler, hdrs map[string]string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for k, v := range hdrs {
+			w.Header().Set(k, v)
+		}
+		parent.ServeHTTP(w, r)
+
+		// TODO: better chained contexts.
+		tr, _ := trace.FromContext(r.Context())
+		for k, v := range hdrs {
+			tr.Printf("added header: %s: %q", k, v)
+		}
+	})
 }
 
 func WithTrace(name string, parent http.Handler) http.Handler {
