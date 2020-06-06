@@ -367,15 +367,6 @@ func newReverseProxy(rp *httputil.ReverseProxy) http.Handler {
 }
 
 func (p *reverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	tr := trace.New("http:proxy", req.Host+req.URL.String())
-	defer tr.Finish()
-
-	tr.Printf("%s %s %s %s %s",
-		req.RemoteAddr, req.Proto, req.Method, req.Host, req.URL.String())
-
-	// Associate the trace with this request.
-	req = req.WithContext(trace.NewContext(req.Context(), tr))
-
 	p.rp.ServeHTTP(rw, req)
 }
 
