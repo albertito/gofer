@@ -162,6 +162,10 @@ func makeProxy(from string, to url.URL, conf *config.HTTP) http.Handler {
 			req.Header.Set("User-Agent", "")
 		}
 
+		// Strip X-Forwarded-For header, since we don't trust what the client
+		// sent, and the reverse proxy will append to.
+		req.Header.Del("X-Forwarded-For")
+
 		// Note we don't do this so we can have routes independent of virtual
 		// hosts. The downside is that if the destination scheme is HTTPS,
 		// this causes issues with the TLS SNI negotiation.
