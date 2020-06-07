@@ -38,7 +38,7 @@ func Raw(addr string, conf config.Raw) {
 
 	rlog := reqlog.FromName(conf.ReqLog)
 
-	log.Infof("Raw proxy on %q (%q)", addr, lis.Addr())
+	log.Infof("%q raw proxy starting on %q", addr, lis.Addr())
 	for {
 		conn, err := lis.Accept()
 		if err != nil {

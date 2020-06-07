@@ -36,7 +36,7 @@ func init() {
 }
 
 func ServeDebugging(addr string, conf *config.Config) {
-	log.Infof("Debugging HTTP server listening on %s", addr)
+	log.Infof("debugging HTTP server listening on %q", addr)
 
 	indexData := struct {
 		Version    string
@@ -61,7 +61,8 @@ func ServeDebugging(addr string, conf *config.Config) {
 		}
 	})
 
-	http.ListenAndServe(addr, nil)
+	err := http.ListenAndServe(addr, nil)
+	log.Errorf("debugging HTTP server died: %v", err)
 }
 
 func DumpConfigFunc(conf *config.Config) http.HandlerFunc {
