@@ -157,53 +157,6 @@ func HTTPS(addr string, conf config.HTTPS) {
 	log.Fatalf("%s https proxy exited: %v", addr, err)
 }
 
-func makeProxy(from string, to url.URL, conf *config.HTTP) http.Handler {
-	proxy := &httputil.ReverseProxy{}
-	proxy.Transport = transport
-
-	// Director that strips "from" from the request path, so that if we have
-	// this config:
-	//
-	//   /a/ -> http://dst/b
-	//   www.example.com/p/ -> http://dst/q
-	//
-	// then:
-	//   /a/x  goes to  http://dst/b/x (not http://dst/b/a/x)
-	//   www.example.com/p/x  goes to  http://dst/q/x
-
-	// Strip the domain from `from`, if any. That is useful for the http
-	// router, but to us is irrelevant.
-	from = stripDomain(from)
-
-	proxy.Director = func(req *http.Request) {
-		req.URL.Scheme = to.Scheme
-		req.URL.Host = to.Host
-		req.URL.RawQuery = req.URL.RawQuery
-		req.URL.Path = adjustPath(req.URL.Path, from, to.Path)
-
-		// If the user agent is not set, prevent a fall back to the default value.
-		if _, ok := req.Header["User-Agent"]; !ok {
-			req.Header.Set("User-Agent", "")
-		}
-
-		// Strip X-Forwarded-For header, since we don't trust what the client
-		// sent, and the reverse proxy will append to.
-		req.Header.Del("X-Forwarded-For")
-
-		// Note we don't do this so we can have routes independent of virtual
-		// hosts. The downside is that if the destination scheme is HTTPS,
-		// this causes issues with the TLS SNI negotiation.
-		//req.Host = to.Host
-
-		// Record the start time, so we can compute end to end latency.
-		// We use WithContext instead of Clone since a shallow copy is fine in
-		// this context, and faster.
-		*req = *req.WithContext(util.NewLatencyContext(req.Context()))
-	}
-
-	return newReverseProxy(proxy)
-}
-
 // joinPath joins to HTTP paths. We can't use path.Join because it strips the
 // final "/", which may have meaning in URLs.
 func joinPath(a, b string) string {
@@ -355,6 +308,52 @@ func makeRedirect(from string, to url.URL, conf *config.HTTP) http.Handler {
 			http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
 		}),
 	)
+}
+
+func makeProxy(from string, to url.URL, conf *config.HTTP) http.Handler {
+	proxy := &httputil.ReverseProxy{}
+	proxy.Transport = transport
+
+	// Director that strips "from" from the request path, so that if we have
+	// this config:
+	//
+	//   /a/ -> http://dst/b
+	//   www.example.com/p/ -> http://dst/q
+	//
+	// then:
+	//   /a/x  goes to  http://dst/b/x (not http://dst/b/a/x)
+	//   www.example.com/p/x  goes to  http://dst/q/x
+
+	// Strip the domain from `from`, if any. That is useful for the http
+	// router, but to us is irrelevant.
+	from = stripDomain(from)
+
+	proxy.Director = func(req *http.Request) {
+		req.URL.Scheme = to.Scheme
+		req.URL.Host = to.Host
+		req.URL.Path = adjustPath(req.URL.Path, from, to.Path)
+
+		// If the user agent is not set, prevent a fall back to the default value.
+		if _, ok := req.Header["User-Agent"]; !ok {
+			req.Header.Set("User-Agent", "")
+		}
+
+		// Strip X-Forwarded-For header, since we don't trust what the client
+		// sent, and the reverse proxy will append to.
+		req.Header.Del("X-Forwarded-For")
+
+		// Note we don't do this so we can have routes independent of virtual
+		// hosts. The downside is that if the destination scheme is HTTPS,
+		// this causes issues with the TLS SNI negotiation.
+		//req.Host = to.Host
+
+		// Record the start time, so we can compute end to end latency.
+		// We use WithContext instead of Clone since a shallow copy is fine in
+		// this context, and faster.
+		*req = *req.WithContext(util.NewLatencyContext(req.Context()))
+	}
+
+	return newReverseProxy(proxy)
 }
 
 type loggingTransport struct{}
