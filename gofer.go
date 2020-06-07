@@ -6,6 +6,7 @@ import (
 
 	"blitiri.com.ar/go/gofer/config"
 	"blitiri.com.ar/go/gofer/debug"
+	"blitiri.com.ar/go/gofer/reqlog"
 	"blitiri.com.ar/go/gofer/server"
 	"blitiri.com.ar/go/log"
 )
@@ -18,10 +19,15 @@ var (
 func main() {
 	flag.Parse()
 	log.Init()
+	log.Infof("gofer starting")
 
 	conf, err := config.Load(*configfile)
 	if err != nil {
 		log.Fatalf("error reading config file: %v", err)
+	}
+
+	for name, rlog := range conf.ReqLog {
+		reqlog.FromConfig(name, rlog)
 	}
 
 	for addr, https := range conf.HTTPS {

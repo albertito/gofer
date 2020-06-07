@@ -1,6 +1,11 @@
 
 control_addr: "127.0.0.1:8459"
 
+reqlog:
+  "requests":
+    file: ".01-be.requests.log"
+    buffer: 10
+
 http:
   ":8450":
     dir:
@@ -28,3 +33,5 @@ http:
       "/file":
         "X-My-Header": "my lovely header"
 
+    reqlog:
+      "/": requests

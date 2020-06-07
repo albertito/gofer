@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"blitiri.com.ar/go/gofer/config"
+	"blitiri.com.ar/go/gofer/reqlog"
 	"blitiri.com.ar/go/gofer/trace"
 	"blitiri.com.ar/go/gofer/util"
 	"blitiri.com.ar/go/log"
@@ -63,7 +64,6 @@ func httpServer(addr string, conf config.HTTP) *http.Server {
 	// Wrap the authentication handlers.
 	if len(conf.Auth) > 0 {
 		authMux := http.NewServeMux()
-		authMux.Handle("/", srv.Handler)
 		for path, dbPath := range conf.Auth {
 			users, err := LoadAuthFile(dbPath)
 			if err != nil {
@@ -78,21 +78,45 @@ func httpServer(addr string, conf config.HTTP) *http.Server {
 
 			log.Infof("%s auth %q -> %q", srv.Addr, path, dbPath)
 		}
+
+		if _, ok := conf.Auth["/"]; !ok {
+			authMux.Handle("/", srv.Handler)
+		}
 		srv.Handler = authMux
 	}
 
 	// Extra headers.
 	if len(conf.SetHeader) > 0 {
 		hdrMux := http.NewServeMux()
-		hdrMux.Handle("/", srv.Handler)
 		for path, extraHdrs := range conf.SetHeader {
 			hdrMux.Handle(path, SetHeader(srv.Handler, extraHdrs))
 			log.Infof("%s add headers %q -> %q", srv.Addr, path, extraHdrs)
+		}
+
+		if _, ok := conf.SetHeader["/"]; !ok {
+			hdrMux.Handle("/", srv.Handler)
 		}
 		srv.Handler = hdrMux
 	}
 
 	srv.Handler = WithTrace("http@"+srv.Addr, srv.Handler)
+
+	if len(conf.ReqLog) > 0 {
+		logMux := http.NewServeMux()
+		for path, logName := range conf.ReqLog {
+			l := reqlog.FromName(logName)
+			if l == nil {
+				log.Fatalf("unknown reqlog name %q", logName)
+			}
+			logMux.Handle(path, WithReqLog(srv.Handler, l))
+			log.Infof("%s reqlog %q to %q", srv.Addr, path, logName)
+		}
+
+		if _, ok := conf.ReqLog["/"]; !ok {
+			logMux.Handle("/", srv.Handler)
+		}
+		srv.Handler = logMux
+	}
 
 	return srv
 }
@@ -170,6 +194,11 @@ func makeProxy(from string, to url.URL, conf *config.HTTP) http.Handler {
 		// hosts. The downside is that if the destination scheme is HTTPS,
 		// this causes issues with the TLS SNI negotiation.
 		//req.Host = to.Host
+
+		// Record the start time, so we can compute end to end latency.
+		// We use WithContext instead of Clone since a shallow copy is fine in
+		// this context, and faster.
+		*req = *req.WithContext(util.NewLatencyContext(req.Context()))
 	}
 
 	return newReverseProxy(proxy)
@@ -343,6 +372,9 @@ func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 		if response.StatusCode >= 400 && response.StatusCode != 404 {
 			tr.SetError()
 		}
+
+		reqLog(req, response.StatusCode, response.ContentLength,
+			util.LatencyFromContext(req.Context()))
 	} else {
 		// errorHandler will be invoked when err != nil, avoid double error
 		// logging.
@@ -380,6 +412,8 @@ func (p *reverseProxy) errorHandler(w http.ResponseWriter, r *http.Request, err 
 		tr.SetError()
 	}
 
+	reqLog(r, http.StatusBadGateway, 0, util.LatencyFromContext(r.Context()))
+
 	w.WriteHeader(http.StatusBadGateway)
 }
 
@@ -387,7 +421,7 @@ func (p *reverseProxy) errorHandler(w http.ResponseWriter, r *http.Request, err 
 type statusWriter struct {
 	http.ResponseWriter
 	status int
-	length int
+	length int64
 }
 
 func (w *statusWriter) WriteHeader(status int) {
@@ -397,7 +431,7 @@ func (w *statusWriter) WriteHeader(status int) {
 
 func (w *statusWriter) Write(b []byte) (int, error) {
 	n, err := w.ResponseWriter.Write(b)
-	w.length += n
+	w.length += int64(n)
 	return n, err
 }
 
@@ -442,12 +476,41 @@ func WithLogging(parent http.Handler) http.Handler {
 		// Wrap the writer so we can get output information.
 		sw := statusWriter{ResponseWriter: w}
 
+		start := time.Now()
 		parent.ServeHTTP(&sw, r)
+		lat := time.Since(start)
+
 		tr.Printf("%d %s", sw.status, http.StatusText(sw.status))
 		tr.Printf("%d bytes", sw.length)
 
 		if sw.status >= 400 && sw.status != 404 {
 			tr.SetError()
 		}
+
+		reqLog(r, sw.status, sw.length, lat)
+	})
+}
+
+func WithReqLog(parent http.Handler, rl *reqlog.Log) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Associate the log with this request. Actual logging will be
+		// performed within the handlers (see WithLogging).
+		r = r.WithContext(reqlog.NewContext(r.Context(), rl))
+
+		parent.ServeHTTP(w, r)
+	})
+}
+
+func reqLog(r *http.Request, status int, length int64, latency time.Duration) {
+	rlog := reqlog.FromContext(r.Context())
+	if rlog == nil {
+		return
+	}
+	rlog.Log(&reqlog.Event{
+		T:       time.Now(),
+		H:       r,
+		Status:  status,
+		Length:  length,
+		Latency: latency,
 	})
 }

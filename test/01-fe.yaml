@@ -13,26 +13,34 @@ _proxy: &proxyroutes
 _redirect: &redirect
   "/gogo/": "https://google.com"
 
+reqlog:
+  "requests":
+    file: ".01-fe.requests.log"
 
 http:
   ":8441":
     proxy: *proxyroutes
     redirect: *redirect
+    reqlog:
+      "/": "requests"
 
 https:
   ":8442":
     certs: ".certs"
     proxy: *proxyroutes
     redirect: *redirect
-
+    reqlog:
+      "/": "requests"
 
 
 # Raw proxy to the same backend.
 raw:
   ":8445":
     to: "localhost:8450"
+    reqlog: "requests"
 
   ":8446":
     to: "localhost:8450"
     certs: ".certs"
+    reqlog: "requests"
 

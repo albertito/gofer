@@ -2,12 +2,15 @@
 package util
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync/atomic"
+	"time"
 )
 
 // LoadCerts loads certificates from the given directory, and returns a TLS
@@ -53,16 +56,19 @@ func LoadCerts(certDir string) (*tls.Config, error) {
 	return tlsConfig, nil
 }
 
-func BidirCopy(src, dst io.ReadWriter) {
+func BidirCopy(src, dst io.ReadWriter) int64 {
 	done := make(chan bool, 2)
+	var total int64
 
 	go func() {
-		io.Copy(src, dst)
+		n, _ := io.Copy(src, dst)
+		atomic.AddInt64(&total, n)
 		done <- true
 	}()
 
 	go func() {
-		io.Copy(dst, src)
+		n, _ := io.Copy(dst, src)
+		atomic.AddInt64(&total, n)
 		done <- true
 	}()
 
@@ -70,4 +76,22 @@ func BidirCopy(src, dst io.ReadWriter) {
 	// The other goroutine will remain alive, it is up to the caller to create
 	// the conditions to complete it (e.g. by closing one of the sides).
 	<-done
+
+	return atomic.LoadInt64(&total)
+}
+
+type latKeyT string
+
+const latKey = latKeyT("latency")
+
+func NewLatencyContext(ctx context.Context) context.Context {
+	return context.WithValue(ctx, latKey, time.Now())
+}
+
+func LatencyFromContext(ctx context.Context) time.Duration {
+	v := ctx.Value(latKey)
+	if v == nil {
+		return time.Duration(0)
+	}
+	return time.Since(v.(time.Time))
 }

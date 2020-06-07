@@ -16,6 +16,8 @@ type Config struct {
 	HTTP  map[string]HTTP
 	HTTPS map[string]HTTPS
 	Raw   map[string]Raw
+
+	ReqLog map[string]ReqLog
 }
 
 type HTTP struct {
@@ -29,6 +31,8 @@ type HTTP struct {
 
 	DirOpts   map[string]DirOpts
 	SetHeader map[string]map[string]string
+
+	ReqLog map[string]string
 }
 
 type HTTPS struct {
@@ -42,10 +46,17 @@ type DirOpts struct {
 }
 
 type Raw struct {
-	Addr  string
-	Certs string
-	To    string
-	ToTLS bool `yaml:"to_tls"`
+	Addr   string
+	Certs  string
+	To     string
+	ToTLS  bool `yaml:"to_tls"`
+	ReqLog string
+}
+
+type ReqLog struct {
+	File    string
+	BufSize int
+	Format  string
 }
 
 func (c Config) String() string {

@@ -4,8 +4,10 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"time"
 
 	"blitiri.com.ar/go/gofer/config"
+	"blitiri.com.ar/go/gofer/reqlog"
 	"blitiri.com.ar/go/gofer/trace"
 	"blitiri.com.ar/go/gofer/util"
 	"blitiri.com.ar/go/log"
@@ -34,6 +36,8 @@ func Raw(addr string, conf config.Raw) {
 		log.Fatalf("Raw proxy error listening on %q: %v", addr, err)
 	}
 
+	rlog := reqlog.FromName(conf.ReqLog)
+
 	log.Infof("Raw proxy on %q (%q)", addr, lis.Addr())
 	for {
 		conn, err := lis.Accept()
@@ -41,12 +45,13 @@ func Raw(addr string, conf config.Raw) {
 			log.Fatalf("%s error accepting: %v", addr, err)
 		}
 
-		go forward(conn, conf.To, conf.ToTLS)
+		go forward(conn, conf.To, conf.ToTLS, rlog)
 	}
 }
 
-func forward(src net.Conn, dstAddr string, dstTLS bool) {
+func forward(src net.Conn, dstAddr string, dstTLS bool, rlog *reqlog.Log) {
 	defer src.Close()
+	start := time.Now()
 
 	tr := trace.New("raw", fmt.Sprintf("%s -> %s", src.LocalAddr(), dstAddr))
 	defer tr.Finish()
@@ -71,7 +76,20 @@ func forward(src net.Conn, dstAddr string, dstTLS bool) {
 
 	tr.Printf("dial complete: %v -> %v", dst.LocalAddr(), dst.RemoteAddr())
 
-	util.BidirCopy(src, dst)
+	nbytes := util.BidirCopy(src, dst)
+	latency := time.Since(start)
 
 	tr.Printf("copy complete")
+	if rlog != nil {
+		rlog.Log(&reqlog.Event{
+			T: time.Now(),
+			R: &reqlog.RawRequest{
+				RemoteAddr: src.RemoteAddr(),
+				LocalAddr:  src.LocalAddr(),
+			},
+			Status:  200,
+			Length:  nbytes,
+			Latency: latency,
+		})
+	}
 }
