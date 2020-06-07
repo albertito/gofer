@@ -99,7 +99,10 @@ func httpServer(addr string, conf config.HTTP) *http.Server {
 		srv.Handler = hdrMux
 	}
 
-	srv.Handler = WithTrace("http@"+srv.Addr, srv.Handler)
+	// Logging for all entries.
+	// Because this will use the request logs if available, it needs to be
+	// wrapped by it.
+	srv.Handler = WithLogging(srv.Handler)
 
 	if len(conf.ReqLog) > 0 {
 		logMux := http.NewServeMux()
@@ -117,6 +120,9 @@ func httpServer(addr string, conf config.HTTP) *http.Server {
 		}
 		srv.Handler = logMux
 	}
+
+	// Tracing for all entries.
+	srv.Handler = WithTrace("http@"+srv.Addr, srv.Handler)
 
 	return srv
 }
@@ -228,31 +234,27 @@ func makeDir(from string, to url.URL, conf *config.HTTP) http.Handler {
 	path := pathOrOpaque(to)
 
 	fs := http.FileServer(NewFS(http.Dir(path), conf.DirOpts[from]))
-	return WithLogging(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tr, _ := trace.FromContext(r.Context())
-			tr.Printf("serving dir root %q", path)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tr, _ := trace.FromContext(r.Context())
+		tr.Printf("serving dir root %q", path)
 
-			r.URL.Path = strings.TrimPrefix(r.URL.Path, from)
-			if r.URL.Path == "" || r.URL.Path[0] != '/' {
-				r.URL.Path = "/" + r.URL.Path
-			}
-			tr.Printf("adjusted path: %q", r.URL.Path)
-			fs.ServeHTTP(w, r)
-		}),
-	)
+		r.URL.Path = strings.TrimPrefix(r.URL.Path, from)
+		if r.URL.Path == "" || r.URL.Path[0] != '/' {
+			r.URL.Path = "/" + r.URL.Path
+		}
+		tr.Printf("adjusted path: %q", r.URL.Path)
+		fs.ServeHTTP(w, r)
+	})
 }
 
 func makeStatic(from string, to url.URL, conf *config.HTTP) http.Handler {
 	path := pathOrOpaque(to)
 
-	return WithLogging(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tr, _ := trace.FromContext(r.Context())
-			tr.Printf("statically serving %q", path)
-			http.ServeFile(w, r, path)
-		}),
-	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tr, _ := trace.FromContext(r.Context())
+		tr.Printf("statically serving %q", path)
+		http.ServeFile(w, r, path)
+	})
 }
 
 func makeCGI(from string, to url.URL, conf *config.HTTP) http.Handler {
@@ -260,20 +262,18 @@ func makeCGI(from string, to url.URL, conf *config.HTTP) http.Handler {
 	path := pathOrOpaque(to)
 	args := queryToArgs(to.RawQuery)
 
-	return WithLogging(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tr, _ := trace.FromContext(r.Context())
-			tr.Debugf("exec %q %q", path, args)
-			h := cgi.Handler{
-				Path:   path,
-				Args:   args,
-				Root:   from,
-				Logger: golog.New(tr, "", golog.Lshortfile),
-				Stderr: tr,
-			}
-			h.ServeHTTP(w, r)
-		}),
-	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tr, _ := trace.FromContext(r.Context())
+		tr.Debugf("exec %q %q", path, args)
+		h := cgi.Handler{
+			Path:   path,
+			Args:   args,
+			Root:   from,
+			Logger: golog.New(tr, "", golog.Lshortfile),
+			Stderr: tr,
+		}
+		h.ServeHTTP(w, r)
+	})
 }
 
 func queryToArgs(query string) []string {
@@ -297,22 +297,20 @@ func queryToArgs(query string) []string {
 func makeRedirect(from string, to url.URL, conf *config.HTTP) http.Handler {
 	from = stripDomain(from)
 
-	return WithLogging(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tr, _ := trace.FromContext(r.Context())
-			target := to
-			target.RawQuery = r.URL.RawQuery
-			target.Path = adjustPath(r.URL.Path, from, to.Path)
-			tr.Printf("redirect to %q", target.String())
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tr, _ := trace.FromContext(r.Context())
+		target := to
+		target.RawQuery = r.URL.RawQuery
+		target.Path = adjustPath(r.URL.Path, from, to.Path)
+		tr.Printf("redirect to %q", target.String())
 
-			http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
-		}),
-	)
+		http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
+	})
 }
 
 func makeProxy(from string, to url.URL, conf *config.HTTP) http.Handler {
 	proxy := &httputil.ReverseProxy{}
-	proxy.Transport = transport
+	proxy.Transport = &proxyTransport{}
 
 	// Director that strips "from" from the request path, so that if we have
 	// this config:
@@ -346,34 +344,25 @@ func makeProxy(from string, to url.URL, conf *config.HTTP) http.Handler {
 		// hosts. The downside is that if the destination scheme is HTTPS,
 		// this causes issues with the TLS SNI negotiation.
 		//req.Host = to.Host
-
-		// Record the start time, so we can compute end to end latency.
-		// We use WithContext instead of Clone since a shallow copy is fine in
-		// this context, and faster.
-		*req = *req.WithContext(util.NewLatencyContext(req.Context()))
 	}
 
 	return newReverseProxy(proxy)
 }
 
-type loggingTransport struct{}
+type proxyTransport struct{}
 
-func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	tr, _ := trace.FromContext(req.Context())
-
 	tr.Printf("proxy to: %s %s %s",
 		req.Proto, req.Method, req.URL.String())
 
 	response, err := http.DefaultTransport.RoundTrip(req)
 	if err == nil {
-		tr.Printf("%s", response.Status)
-		tr.Printf("%d bytes", response.ContentLength)
+		tr.Printf("backend response: %s, %d bytes",
+			response.Status, response.ContentLength)
 		if response.StatusCode >= 400 && response.StatusCode != 404 {
 			tr.SetError()
 		}
-
-		reqLog(req, response.StatusCode, response.ContentLength,
-			util.LatencyFromContext(req.Context()))
 	} else {
 		// errorHandler will be invoked when err != nil, avoid double error
 		// logging.
@@ -381,9 +370,6 @@ func (t *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 
 	return response, err
 }
-
-// Use a single logging transport, we don't need more than one.
-var transport = &loggingTransport{}
 
 type reverseProxy struct {
 	rp *httputil.ReverseProxy
@@ -410,8 +396,6 @@ func (p *reverseProxy) errorHandler(w http.ResponseWriter, r *http.Request, err 
 	if !errors.Is(err, context.Canceled) {
 		tr.SetError()
 	}
-
-	reqLog(r, http.StatusBadGateway, 0, util.LatencyFromContext(r.Context()))
 
 	w.WriteHeader(http.StatusBadGateway)
 }
@@ -475,6 +459,10 @@ func WithLogging(parent http.Handler) http.Handler {
 		// Wrap the writer so we can get output information.
 		sw := statusWriter{ResponseWriter: w}
 
+		// Save the URL, since some of the callers will change it (e.g.
+		// makeDir).
+		origURL := *r.URL
+
 		start := time.Now()
 		parent.ServeHTTP(&sw, r)
 		lat := time.Since(start)
@@ -486,6 +474,7 @@ func WithLogging(parent http.Handler) http.Handler {
 			tr.SetError()
 		}
 
+		r.URL = &origURL
 		reqLog(r, sw.status, sw.length, lat)
 	})
 }

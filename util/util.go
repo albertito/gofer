@@ -2,7 +2,6 @@
 package util
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -10,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync/atomic"
-	"time"
 )
 
 // LoadCerts loads certificates from the given directory, and returns a TLS
@@ -78,20 +76,4 @@ func BidirCopy(src, dst io.ReadWriter) int64 {
 	<-done
 
 	return atomic.LoadInt64(&total)
-}
-
-type latKeyT string
-
-const latKey = latKeyT("latency")
-
-func NewLatencyContext(ctx context.Context) context.Context {
-	return context.WithValue(ctx, latKey, time.Now())
-}
-
-func LatencyFromContext(ctx context.Context) time.Duration {
-	v := ctx.Value(latKey)
-	if v == nil {
-		return time.Duration(0)
-	}
-	return time.Since(v.(time.Time))
 }
