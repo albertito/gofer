@@ -1,0 +1,13 @@
+/var/log/gofer/*.log {
+        weekly
+        missingok
+        rotate 12
+        compress
+        delaycompress
+        notifempty
+        sharedscripts
+        postrotate
+                systemctl reload-or-try-restart gofer
+        endscript
+}
+

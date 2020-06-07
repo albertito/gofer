@@ -8,8 +8,8 @@
 !.gitignore
 
 # The binaries.
-gofer
-test/util/exp
+/gofer
+/test/util/exp
 
 # Configuration and certificates, to prevent accidents.
 *.yaml
