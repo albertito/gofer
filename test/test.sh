@@ -24,7 +24,7 @@ if [ "$COVER_DIR" != "" ]; then
 		mv gofer.test gofer
 	)
 else
-	( cd ..; go build )
+	( cd ..; go build $GO_FLAGS )
 fi
 ( cd util; go build exp.go )
 
@@ -82,21 +82,37 @@ function snoop() {
 	fi
 }
 
+function waitgrep() {
+	for i in 0.01 0.02 0.05 0.1 0.2; do
+		if grep "$@"; then
+				return 0
+		fi
+		sleep $i
+	done
+	return 1	
+}
+
+
 echo "## Setup"
+
+# Remove old request log files, since we will be checking their contents.
+rm -f .01-fe.requests.log .01-be.requests.log
 
 # Launch the backend serving static files and CGI.
 gofer -logfile=.01-be.log -configfile=01-be.yaml
-DIR_PID=$PID
+BE_PID=$PID
 wait_until_ready 8450
 
 # Launch the test instance.
 generate_certs
 gofer -logfile=.01-fe.log -configfile=01-fe.yaml
+FE_PID=$PID
 wait_until_ready 8441  # http
 wait_until_ready 8442  # https
 wait_until_ready 8445  # raw
 
 snoop
+
 
 #
 # Test cases.
@@ -129,6 +145,7 @@ do
 	exp $base/dir/withoutindex/chau -body 'chau\n'
 
 	exp $base/cgi/ -bodyre '"param 1" "param 2"'
+	exp $base/cgi/lala -bodyre '"param 1" "param 2"'
 	exp "$base/cgi/?cucu=melo&a;b" -bodyre 'QUERY_STRING=cucu=melo&a;b\n'
 
 	exp $base/gogo/ -status 307 -redir https://google.com/
@@ -157,6 +174,7 @@ do
 	exp $base/file -hdrre "X-My-Header: my lovely header"
 done
 
+
 # Good auth.
 for base in \
 	http://oneuser:onepass@localhost:8441 \
@@ -170,6 +188,7 @@ do
 	exp $base/authdir/withoutindex/chau -body 'chau\n'
 done
 
+
 # Bad auth.
 for base in \
 	http://oneuser:bad@localhost:8441 \
@@ -182,6 +201,37 @@ do
 	exp $base/authdir/withoutindex/ -status 401
 	exp $base/authdir/withoutindex/chau -status 401
 done
+
+
+echo "### Request log"
+function logtest() {
+		exp http://localhost:8441/cgi/logtest
+		for f in .01-be.requests.log .01-fe.requests.log; do
+				EXPECT="localhost:8441 GET /cgi/logtest = 200"
+				if ! waitgrep -q "$EXPECT" $f; then
+						echo "$f: log entry not found"
+						exit 1
+				fi
+		done
+}
+
+# Check that the entry appears.
+logtest
+
+# Log rotation.
+mv .01-fe.requests.log .01-fe.requests.log.old
+mv .01-be.requests.log .01-be.requests.log.old
+kill -HUP $FE_PID $BE_PID
+
+# Expect the entry again, and make sure it's the only one.
+logtest
+for f in .01-be.requests.log .01-fe.requests.log; do
+		if [ "$(wc -l < $f)" != 1 ]; then
+			echo "$f: unexpected number of entries"
+			exit 1
+		fi
+done
+
 
 echo "### Miscellaneous"
 

@@ -160,6 +160,12 @@ func FromName(name string) *Log {
 	return registry[name]
 }
 
+func ReopenAll() {
+	for _, rl := range registry {
+		rl.Reopen()
+	}
+}
+
 type ctxKeyT string
 
 const ctxKey = ctxKeyT("reqlog")
