@@ -420,16 +420,12 @@ func (w *statusWriter) Write(b []byte) (int, error) {
 
 func SetHeader(parent http.Handler, hdrs map[string]string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		for k, v := range hdrs {
-			w.Header().Set(k, v)
-		}
-		parent.ServeHTTP(w, r)
-
-		// TODO: better chained contexts.
 		tr, _ := trace.FromContext(r.Context())
 		for k, v := range hdrs {
+			w.Header().Set(k, v)
 			tr.Printf("added header: %s: %q", k, v)
 		}
+		parent.ServeHTTP(w, r)
 	})
 }
 
