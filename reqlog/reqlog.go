@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"text/template"
 	"time"
 
@@ -48,7 +49,7 @@ const commonFormat = "{{.H.RemoteAddr}} - - [{{.T.Format \"02/Jan/2006:15:04:05 
 // Combined log format, extension of the Common Log Format, and used by a lot
 // of servers (e.g. Apache).
 // https://httpd.apache.org/docs/2.4/logs.html#combined
-const combinedFormat = "{{.H.RemoteAddr}} - - [{{.T.Format \"02/Jan/2006:15:04:05 -0700\"}}] \"{{.H.Method}} {{.H.URL}} {{.H.Proto}}\" {{.Status}} {{.Length}} {{.H.Header.Referer|q}} {{.H.Header.User-agent|q}}\n"
+const combinedFormat = "{{.H.RemoteAddr}} - - [{{.T.Format \"02/Jan/2006:15:04:05 -0700\"}}] \"{{.H.Method}} {{.H.URL}} {{.H.Proto}}\" {{.Status}} {{.Length}} {{.H.Header.Referer|q}} {{index .H.Header \"User-Agent\"|q}}\n"
 
 // Extension of the combined log format, prepending the virtual host.
 // https://httpd.apache.org/docs/2.4/logs.html#virtualhost
@@ -60,7 +61,8 @@ const lighttpdFormat = "{{.H.RemoteAddr}} {{.H.Host}} - [{{.T.Format \"02/Jan/20
 
 // gofer format, this is the default, and can handle both raw and HTTP events.
 const goferFormat = "{{.T.Format \"2006-01-02 15:04:05.000\"}}" +
-	"{{if .H}} {{.H.RemoteAddr}} {{.H.Proto}} {{.H.Host}} {{.H.Method}} {{.H.URL}}{{end}}" +
+	"{{if .H}} {{.H.RemoteAddr}} {{.H.Proto}} {{.H.Host}} {{.H.Method}}" +
+	" {{.H.URL}} {{.H.Header.Referer|q}} {{index .H.Header \"User-Agent\"|q}}{{end}}" +
 	"{{if .R}} {{.R.RemoteAddr}} raw {{.R.LocalAddr}}{{end}}" +
 	" = {{.Status}} {{.Length}}b {{.Latency.Milliseconds}}ms\n"
 
@@ -181,6 +183,17 @@ func FromContext(ctx context.Context) *Log {
 	return v.(*Log)
 }
 
-func quoteString(s string) string {
-	return fmt.Sprintf("%q", s)
+func quoteString(i interface{}) string {
+	if i == nil {
+		return `""`
+	}
+
+	switch v := i.(type) {
+	case string:
+		return fmt.Sprintf("%q", v)
+	case []string:
+		return fmt.Sprintf("%q", strings.Join(v, ", "))
+	default:
+		return fmt.Sprintf("unknown-type-%T", v)
+	}
 }

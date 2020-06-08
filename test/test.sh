@@ -205,14 +205,14 @@ done
 
 echo "### Request log"
 function logtest() {
-		exp http://localhost:8441/cgi/logtest
-		for f in .01-be.requests.log .01-fe.requests.log; do
-				EXPECT="localhost:8441 GET /cgi/logtest = 200"
-				if ! waitgrep -q "$EXPECT" $f; then
-						echo "$f: log entry not found"
-						exit 1
-				fi
-		done
+	exp http://localhost:8441/cgi/logtest
+	for f in .01-be.requests.log .01-fe.requests.log; do
+		EXPECT='localhost:8441 GET /cgi/logtest "" "Go-http-client/1.1" = 200'
+		if ! waitgrep -q "$EXPECT" $f; then
+			echo "$f: log entry not found"
+			exit 1
+		fi
+	done
 }
 
 # Check that the entry appears.
@@ -226,10 +226,10 @@ kill -HUP $FE_PID $BE_PID
 # Expect the entry again, and make sure it's the only one.
 logtest
 for f in .01-be.requests.log .01-fe.requests.log; do
-		if [ "$(wc -l < $f)" != 1 ]; then
-			echo "$f: unexpected number of entries"
-			exit 1
-		fi
+	if [ "$(wc -l < $f)" != 1 ]; then
+		echo "$f: unexpected number of entries"
+		exit 1
+	fi
 done
 
 
