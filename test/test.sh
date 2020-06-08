@@ -24,7 +24,7 @@ if [ "$COVER_DIR" != "" ]; then
 		mv gofer.test gofer
 	)
 else
-	( cd ..; go build $GO_FLAGS )
+	( cd ..; make )
 fi
 ( cd util; go build exp.go )
 

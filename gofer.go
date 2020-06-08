@@ -22,7 +22,7 @@ var (
 func main() {
 	flag.Parse()
 	log.Init()
-	log.Infof("gofer starting")
+	log.Infof("gofer starting (%s, %s)", debug.Version, debug.SourceDateStr)
 
 	conf, err := config.Load(*configfile)
 	if err != nil {

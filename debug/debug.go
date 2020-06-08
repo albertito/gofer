@@ -15,7 +15,7 @@ import (
 )
 
 // Build information, overridden at build time using
-// -ldflags="-X blitiri.com.ar/go/gofer/internal/debug.Version=blah".
+// -ldflags="-X blitiri.com.ar/go/gofer/debug.Version=blah".
 var (
 	Version      = "undefined"
 	SourceDateTs = "0"

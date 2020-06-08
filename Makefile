@@ -12,8 +12,8 @@ default: gofer
 
 gofer:
 	go build -ldflags="\
-		-X main.version=${VERSION} \
-		-X main.sourceDateTs=${SOURCE_DATE_EPOCH} \
+		-X blitiri.com.ar/go/gofer/debug.Version=${VERSION} \
+		-X blitiri.com.ar/go/gofer/debug.SourceDateTs=${SOURCE_DATE_EPOCH} \
 		" ${GOFLAGS}
 
 test:
