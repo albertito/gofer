@@ -230,10 +230,10 @@ func pathOrOpaque(u url.URL) string {
 }
 
 func makeDir(from string, to url.URL, conf *config.HTTP) http.Handler {
-	from = stripDomain(from)
 	path := pathOrOpaque(to)
-
 	fs := http.FileServer(NewFS(http.Dir(path), conf.DirOpts[from]))
+
+	from = stripDomain(from)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tr, _ := trace.FromContext(r.Context())
 		tr.Printf("serving dir root %q", path)
