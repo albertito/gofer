@@ -16,8 +16,12 @@ gofer:
 		-X blitiri.com.ar/go/gofer/debug.SourceDateTs=${SOURCE_DATE_EPOCH} \
 		" ${GOFLAGS}
 
-test:
+vet: etc/gofer.yaml test/01-be.yaml test/01-fe.yaml
+	go vet ./...
+	cue vet etc/gofer.schema.cue $^
+
+test: vet
 	go test ./...
 	setsid -w ./test/test.sh
 
-.PHONY: gofer test
+.PHONY: gofer vet test

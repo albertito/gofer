@@ -1,0 +1,116 @@
+# gofer configuration file
+
+# Address for the control/debug server.
+# DO NOT EXPOSE THIS TO THE INTERNET, it is dangerous and will leak a lot of
+# information.
+control_addr: "127.0.0.1:8081"
+
+# Request logging.
+reqlog:
+  # Name of the log; just an id used to refer to it on the server entries
+  # below.
+  "requests.log":
+    # Path to the log file.
+    file: "/var/log/gofer/requests.log"
+
+    # How many entries to hold in memory. Defaults to 0 (synchronous logging).
+    bufsize: 16
+
+    # Log format.
+    # Known formats: <common>, <combined>, <combinedvh>, <lighttpd>, <gofer>
+    # (that is the default).
+    #format: "<gofer>"
+
+
+# HTTP servers.
+# Map of address: configuration.
+http:
+  # Address to listen on.
+  # systemd socket passing is supported, use "&name" to indicate that you've
+  # set up a systemd socket unit with "FileDescriptorName=name".
+  # Examples: ":80", "127.0.0.1:8080", "&http".
+  "&http":
+
+    # The following options all have the same structure: the route type, and
+    # within, a series of <path>: <target>.
+    # The path have the semantics of http.ServeMux.
+    # The meaning of the target is type-specific.
+
+    # Serve the directory at the given path.
+    dir:
+      "/": "/srv/www/"
+      #"/other": "/srv/other/"
+
+    # Static individual files.
+    #static:
+    #  "/a/file": "/srv/files/file"
+
+    # Proxy requests.
+    #proxy:
+    #  "/api/v1/": "http://localhost:8080/api/"
+
+    # Redirect to a different URL.
+    #redirect:
+    #  "/wiki": "https://wikipedia.org"
+
+    # Execute a CGI.
+    #cgi:
+    #  "/gitweb": "/usr/share/gitweb/gitweb.cgi"
+
+    # Enforce authentication on these paths. The target is the file containing
+    # the user and passwords.
+    #auth:
+    #  "/private": "/srv/auth/web-users.yaml"
+
+    # Set a header on replies.
+    #setheader:
+    #  "/":
+    #    "My-Header": "my header value"
+
+    # Configure options for the "dir" type, so we can customize some behaviour
+    # per path.
+    diropts:
+      "/":
+        # Enable listing when index.html is not present?
+        listing:
+          "/": false
+          "/pub/": true
+
+        # Exclude files matching these regular expressions. They won't appear
+        # in listings, and won't be served to users (404 will be returned
+        # instead).
+        #exclude: [".*\\.secret", ".*/config"]
+
+      #"/other":
+      #  listing: true
+
+    # Enable request logging. The target is a log name, which should match an
+    # entry in the top-level reqlog configuration (see above).
+    reqlog:
+      "/": "requests.log"
+
+
+# HTTPS servers.
+https:
+  "&https":
+    # Location of the certificates, for TLS.
+    certs: "/etc/letsencrypt/live/"
+
+    # The rest of the fields are the same as for http above.
+    proxy:
+      "/": "http://localhost:8080/"
+      "/local/": "http://localhost:99/"
+
+
+# Raw socket proxying.
+raw:
+  ":995":
+    # If this is present, we will listen on a TLS socket; otherwise it will be
+    # a plain socket.
+    certs: "/etc/letsencrypt/live/"
+
+    # Address to proxy to.
+    to: "127.0.0.1:1995"
+
+    # If this is true, then we will use TLS to connect to the backend.
+    to_tls: true
