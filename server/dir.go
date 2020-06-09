@@ -53,14 +53,14 @@ func (fs *FileSystem) Open(name string) (http.File, error) {
 		return nil, err
 	}
 
-	f = wrappedFile{File: f, name: name, opts: &fs.opts}
-
-	if ListingEnabled(&fs.opts, name) {
+	// If it's not a directory, let it be.
+	if s, _ := f.Stat(); s == nil || !s.IsDir() {
 		return f, nil
 	}
 
-	// If it's not a directory, let it be.
-	if s, _ := f.Stat(); s == nil || !s.IsDir() {
+	f = wrappedFile{File: f, name: name, opts: &fs.opts}
+
+	if ListingEnabled(&fs.opts, name) {
 		return f, nil
 	}
 
