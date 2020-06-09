@@ -25,7 +25,7 @@ https?:
 _http: {
 	dir?: [string]: string
 
-	static?: [string]: string
+	file?: [string]: string
 
 	proxy?: [string]: string
 

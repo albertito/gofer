@@ -41,8 +41,8 @@ http:
       "/": "/srv/www/"
       #"/other": "/srv/other/"
 
-    # Static individual files.
-    #static:
+    # Individual files.
+    #file:
     #  "/a/file": "/srv/files/file"
 
     # Proxy requests.

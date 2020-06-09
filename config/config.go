@@ -23,7 +23,7 @@ type Config struct {
 type HTTP struct {
 	Proxy    map[string]string
 	Dir      map[string]string
-	Static   map[string]string
+	File     map[string]string
 	Redirect map[string]string
 	CGI      map[string]string
 

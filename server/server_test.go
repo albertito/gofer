@@ -81,7 +81,7 @@ http:
     proxy:
       "/be/": "$BACKEND_URL"
       "localhost/xy/": "$BACKEND_URL"
-    static:
+    file:
       "/static/hola": "$PWD/testdata/hola"
     dir:
       "/dir/": "$PWD/testdata/"
@@ -128,7 +128,7 @@ func TestSimple(t *testing.T) {
 	testGet(t, "http://localhost:"+httpPort+"/be/", 200)
 	testGet(t, "http://localhost:"+httpPort+"/xy/1", 200)
 
-	// Test dir and static schemes.
+	// Test dir and file schemes.
 	testGet(t, "http://"+httpAddr+"/static/hola", 200)
 	testGet(t, "http://"+httpAddr+"/dir/hola", 200)
 	testGet(t, "http://"+httpAddr+"/redir/hola", 200)

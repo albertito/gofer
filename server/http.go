@@ -44,7 +44,7 @@ func httpServer(addr string, conf config.HTTP) *http.Server {
 	}{
 		{"proxy", conf.Proxy, makeProxy},
 		{"dir", conf.Dir, makeDir},
-		{"static", conf.Static, makeStatic},
+		{"file", conf.File, makeFile},
 		{"redirect", conf.Redirect, makeRedirect},
 		{"cgi", conf.CGI, makeCGI},
 	}
@@ -247,12 +247,12 @@ func makeDir(from string, to url.URL, conf *config.HTTP) http.Handler {
 	})
 }
 
-func makeStatic(from string, to url.URL, conf *config.HTTP) http.Handler {
+func makeFile(from string, to url.URL, conf *config.HTTP) http.Handler {
 	path := pathOrOpaque(to)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tr, _ := trace.FromContext(r.Context())
-		tr.Printf("statically serving %q", path)
+		tr.Printf("serving file %q", path)
 		http.ServeFile(w, r, path)
 	})
 }

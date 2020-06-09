@@ -11,7 +11,7 @@ http:
     dir:
       "/dir/": "testdata/dir"
       "/authdir/": "testdata/dir"
-    static:
+    file:
       "/file": "testdata/file"
       "/file/second": "testdata/dir/ñaca"
     cgi:
