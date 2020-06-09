@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
 	golog "log"
 	"net/http"
 	"net/http/cgi"
@@ -415,6 +416,14 @@ func (w *statusWriter) WriteHeader(status int) {
 func (w *statusWriter) Write(b []byte) (int, error) {
 	n, err := w.ResponseWriter.Write(b)
 	w.length += int64(n)
+	return n, err
+}
+
+// ReadFrom is optional but enables the use of sendfile, which speeds things
+// up considerably.
+func (w *statusWriter) ReadFrom(src io.Reader) (int64, error) {
+	n, err := io.Copy(w.ResponseWriter, src)
+	w.length += n
 	return n, err
 }
 
