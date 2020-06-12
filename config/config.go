@@ -26,6 +26,7 @@ type HTTP struct {
 	File     map[string]string
 	Redirect map[string]string
 	CGI      map[string]string
+	Status   map[string]int
 
 	Auth map[string]string
 

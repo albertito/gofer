@@ -33,6 +33,8 @@ _http: {
 
 	cgi?: [string]: string
 
+	status?: [string]: int
+
 	auth?: [string]: string
 
 	setheader?: [string]: [string]: string

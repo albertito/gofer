@@ -17,6 +17,9 @@ http:
     cgi:
       "/cgi/": "testdata/cgi.sh?param 1;param 2"
 
+    status:
+      "/status/543": 543
+
     diropts:
       "/dir/":
         listing:

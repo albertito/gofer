@@ -155,6 +155,8 @@ do
 	exp $base/bad/unreacheable -status 502
 	exp $base/bad/empty -status 502
 
+	exp $base/status/543 -status 543
+
 	# Test that the FE doesn't forward this - it exists on the BE, but the
 	# route doesn't end in a / so it shouldn't be forwarded.
 	exp $base/file/second -status 404

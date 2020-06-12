@@ -57,6 +57,11 @@ http:
     #cgi:
     #  "/gitweb": "/usr/share/gitweb/gitweb.cgi"
 
+    # Return a specific status. Can be useful to return 404 on specific
+    # sub-paths.
+    #status:
+    #  "/notfound": 404
+
     # Enforce authentication on these paths. The target is the file containing
     # the user and passwords.
     #auth:

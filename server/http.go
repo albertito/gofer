@@ -62,6 +62,11 @@ func httpServer(addr string, conf config.HTTP) *http.Server {
 		}
 	}
 
+	for from, status := range conf.Status {
+		log.Infof("%s route %s -> status %d", srv.Addr, from, status)
+		mux.Handle(from, makeStatus(from, status))
+	}
+
 	// Wrap the authentication handlers.
 	if len(conf.Auth) > 0 {
 		authMux := http.NewServeMux()
@@ -306,6 +311,14 @@ func makeRedirect(from string, to url.URL, conf *config.HTTP) http.Handler {
 		tr.Printf("redirect to %q", target.String())
 
 		http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
+	})
+}
+
+func makeStatus(from string, status int) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tr, _ := trace.FromContext(r.Context())
+		tr.Printf("status %d", status)
+		w.WriteHeader(status)
 	})
 }
 

@@ -6,6 +6,7 @@ _proxy: &proxyroutes
   "/authdir/": "http://localhost:8450/authdir/"
   "/file": "http://localhost:8450/file"
   "/cgi/": "http://localhost:8450/cgi/"
+  "/status/": "http://localhost:8450/status/"
   "/bad/unreacheable": "http://localhost:1/"
   "/bad/empty": "http:"
   "/dar/": "http://localhost:8450/dir/"
