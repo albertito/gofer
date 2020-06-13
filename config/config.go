@@ -4,6 +4,7 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"regexp"
 
 	"gopkg.in/yaml.v3"
@@ -21,16 +22,10 @@ type Config struct {
 }
 
 type HTTP struct {
-	Proxy    map[string]string
-	Dir      map[string]string
-	File     map[string]string
-	Redirect map[string]string
-	CGI      map[string]string
-	Status   map[string]int
+	Routes map[string]Route
 
 	Auth map[string]string
 
-	DirOpts   map[string]DirOpts
 	SetHeader map[string]map[string]string
 
 	ReqLog map[string]string
@@ -39,6 +34,16 @@ type HTTP struct {
 type HTTPS struct {
 	HTTP  `yaml:",inline"`
 	Certs string
+}
+
+type Route struct {
+	Dir      string
+	File     string
+	Proxy    *URL
+	Redirect *URL
+	CGI      []string
+	Status   int
+	DirOpts  DirOpts
 }
 
 type DirOpts struct {
@@ -105,4 +110,31 @@ func (re *Regexp) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	re.Regexp = rx
 	return nil
+}
+
+// Wrapper to simplify URLs in configuration.
+type URL url.URL
+
+func (u *URL) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err != nil {
+		return err
+	}
+
+	x, err := url.Parse(s)
+	if err != nil {
+		return err
+	}
+
+	*u = URL(*x)
+	return nil
+}
+
+func (u *URL) URL() url.URL {
+	return url.URL(*u)
+}
+
+func (u URL) String() string {
+	p := u.URL()
+	return p.String()
 }

@@ -2,9 +2,19 @@ package config
 
 import (
 	"log"
-	"reflect"
+	"net/url"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
+
+func mustURL(r string) *URL {
+	u, err := url.Parse(r)
+	if err != nil {
+		panic(err)
+	}
+	return (*URL)(u)
+}
 
 func TestSimple(t *testing.T) {
 	// Note: no TABs in the contents, they are not valid indentation in yaml
@@ -19,23 +29,28 @@ raw:
     to: "blerg.com:1995"
     to_tls: true
 
-_proxy: &proxy
-  "/": "http://def/"
-  "/common": "http://common/"
+_routes: &routes
+  "/":
+    proxy: "http://def/"
+  "/dir":
+    dir: "/tmp"
 
 http:
   ":http":
-    proxy:
-      <<: *proxy
-      "/srv": "http://srv/"
+    routes:
+      <<: *routes
+      "/srv":
+        proxy: "http://srv/"
 
 https:
   ":https":
     certs: "/etc/letsencrypt/live/"
-    proxy:
-      <<: *proxy
-      "/": "http://tlsoverrides/"
-      "/srv": "http://srv2/"
+    routes:
+      <<: *routes
+      "/":
+        proxy: "http://tlsoverrides/"
+      "/srv":
+        proxy: "http://srv2/"
 `
 
 	expected := Config{
@@ -49,20 +64,20 @@ https:
 		},
 		HTTP: map[string]HTTP{
 			":http": {
-				Proxy: map[string]string{
-					"/":       "http://def/",
-					"/common": "http://common/",
-					"/srv":    "http://srv/",
+				Routes: map[string]Route{
+					"/":    {Proxy: mustURL("http://def/")},
+					"/dir": {Dir: "/tmp"},
+					"/srv": {Proxy: mustURL("http://srv/")},
 				},
 			},
 		},
 		HTTPS: map[string]HTTPS{
 			":https": {
 				HTTP: HTTP{
-					Proxy: map[string]string{
-						"/":       "http://tlsoverrides/",
-						"/common": "http://common/",
-						"/srv":    "http://srv2/",
+					Routes: map[string]Route{
+						"/":    {Proxy: mustURL("http://tlsoverrides/")},
+						"/dir": {Dir: "/tmp"},
+						"/srv": {Proxy: mustURL("http://srv2/")},
 					},
 				},
 				Certs: "/etc/letsencrypt/live/",
@@ -75,9 +90,7 @@ https:
 		log.Fatal(err)
 	}
 
-	if !reflect.DeepEqual(*conf, expected) {
-		t.Errorf("configuration is not as expected")
-		t.Errorf("  expected: %v", expected.String())
-		t.Errorf("  got:      %v", conf.String())
+	if diff := cmp.Diff(expected, *conf); diff != "" {
+		t.Errorf("configuration is not as expected (-want +got):\n%s", diff)
 	}
 }

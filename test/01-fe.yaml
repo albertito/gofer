@@ -1,18 +1,25 @@
 
 control_addr: "127.0.0.1:8440"
 
-_proxy: &proxyroutes
-  "/dir/": "http://localhost:8450/dir/"
-  "/authdir/": "http://localhost:8450/authdir/"
-  "/file": "http://localhost:8450/file"
-  "/cgi/": "http://localhost:8450/cgi/"
-  "/status/": "http://localhost:8450/status/"
-  "/bad/unreacheable": "http://localhost:1/"
-  "/bad/empty": "http:"
-  "/dar/": "http://localhost:8450/dir/"
-
-_redirect: &redirect
-  "/gogo/": "https://google.com"
+_routes: &routes
+  "/dir/":
+    proxy: "http://localhost:8450/dir/"
+  "/authdir/":
+    proxy: "http://localhost:8450/authdir/"
+  "/file":
+    proxy: "http://localhost:8450/file"
+  "/cgi/":
+    proxy: "http://localhost:8450/cgi/"
+  "/status/":
+    proxy: "http://localhost:8450/status/"
+  "/bad/unreacheable":
+    proxy: "http://localhost:1/"
+  "/bad/empty":
+    proxy: "http:"
+  "/dar/":
+    proxy: "http://localhost:8450/dir/"
+  "/gogo/":
+    redirect: "https://google.com"
 
 reqlog:
   "requests":
@@ -20,16 +27,14 @@ reqlog:
 
 http:
   ":8441":
-    proxy: *proxyroutes
-    redirect: *redirect
+    routes: *routes
     reqlog:
       "/": "requests"
 
 https:
   ":8442":
     certs: ".certs"
-    proxy: *proxyroutes
-    redirect: *redirect
+    routes: *routes
     reqlog:
       "/": "requests"
 

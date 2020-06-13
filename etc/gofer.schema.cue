@@ -15,39 +15,43 @@ reqlog?:
 	})
 
 http?:
-	[string]: close(_http)
+	[string]: close(#http)
 
 https?:
-	[string]: close(_http & {
+	[string]: close(#http & {
 		certs: string
 	})
 
-_http: {
-	dir?: [string]: string
+#http: {
+	routes: [string]: {
+		dir?: string
+		file?: string
+		proxy?: string
+		redirect?: string
+		cgi?: [string, ...string]
+		status?: int
 
-	file?: [string]: string
+		// TODO: Check that only one of the above is set.
 
-	proxy?: [string]: string
+		diropts?: {
+			listing?: [string]: bool
+			exclude?: [string]
+		}
 
-	redirect?: [string]: string
+		// If diropts is set, then dir must be set too.
+		if diropts != null {
+			dir: string
+		}
 
-	cgi?: [string]: string
-
-	status?: [string]: int
+	}
 
 	auth?: [string]: string
 
 	setheader?: [string]: [string]: string
 
-	diropts?: [string]: #diropts
-
 	reqlog?: [string]: string
-}
 
-#diropts:: {
-	listing?: [string]: bool
-
-	exclude?: [string]
+	...
 }
 
 raw?:

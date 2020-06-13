@@ -34,37 +34,30 @@ func httpServer(addr string, conf config.HTTP) *http.Server {
 		ErrorLog: golog.New(ev, "", golog.Lshortfile),
 	}
 
-	// Load route table.
 	mux := http.NewServeMux()
 	srv.Handler = mux
 
-	routes := []struct {
-		name        string
-		table       map[string]string
-		makeHandler func(string, url.URL, *config.HTTP) http.Handler
-	}{
-		{"proxy", conf.Proxy, makeProxy},
-		{"dir", conf.Dir, makeDir},
-		{"file", conf.File, makeFile},
-		{"redirect", conf.Redirect, makeRedirect},
-		{"cgi", conf.CGI, makeCGI},
-	}
-	for _, r := range routes {
-		for from, to := range r.table {
-			toURL, err := url.Parse(to)
-			if err != nil {
-				log.Fatalf(
-					"route %s %q -> %q: destination is not a valid URL: %v",
-					r.name, from, to, err)
-			}
-			log.Infof("%s route %q -> %s %q", srv.Addr, from, r.name, toURL)
-			mux.Handle(from, r.makeHandler(from, *toURL, &conf))
+	// Load route table.
+	for path, r := range conf.Routes {
+		if r.Dir != "" {
+			log.Infof("%s route %q -> dir %q", srv.Addr, path, r.Dir)
+			mux.Handle(path, makeDir(path, r.Dir, r.DirOpts))
+		} else if r.File != "" {
+			log.Infof("%s route %q -> file %q", srv.Addr, path, r.File)
+			mux.Handle(path, makeFile(path, r.File))
+		} else if r.Proxy != nil {
+			log.Infof("%s route %q -> proxy %s", srv.Addr, path, r.Proxy)
+			mux.Handle(path, makeProxy(path, r.Proxy.URL()))
+		} else if r.Redirect != nil {
+			log.Infof("%s route %q -> redirect %s", srv.Addr, path, r.Redirect)
+			mux.Handle(path, makeRedirect(path, r.Redirect.URL()))
+		} else if len(r.CGI) > 0 {
+			log.Infof("%s route %q -> cgi %q", srv.Addr, path, r.CGI)
+			mux.Handle(path, makeCGI(path, r.CGI))
+		} else if r.Status > 0 {
+			log.Infof("%s route %q -> status %d", srv.Addr, path, r.Status)
+			mux.Handle(path, makeStatus(path, r.Status))
 		}
-	}
-
-	for from, status := range conf.Status {
-		log.Infof("%s route %s -> status %d", srv.Addr, from, status)
-		mux.Handle(from, makeStatus(from, status))
 	}
 
 	// Wrap the authentication handlers.
@@ -235,46 +228,40 @@ func pathOrOpaque(u url.URL) string {
 	return u.Opaque
 }
 
-func makeDir(from string, to url.URL, conf *config.HTTP) http.Handler {
-	path := pathOrOpaque(to)
-	fs := http.FileServer(NewFS(http.Dir(path), conf.DirOpts[from]))
+func makeDir(path string, dir string, opts config.DirOpts) http.Handler {
+	fs := http.FileServer(NewFS(http.Dir(dir), opts))
 
-	from = stripDomain(from)
+	path = stripDomain(path)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tr, _ := trace.FromContext(r.Context())
-		tr.Printf("serving dir root %q", path)
+		tr.Printf("serving dir root %q", dir)
 
-		r.URL.Path = strings.TrimPrefix(r.URL.Path, from)
+		r.URL.Path = strings.TrimPrefix(r.URL.Path, path)
 		if r.URL.Path == "" || r.URL.Path[0] != '/' {
 			r.URL.Path = "/" + r.URL.Path
 		}
-		tr.Printf("adjusted path: %q", r.URL.Path)
+		tr.Printf("adjusted dir: %q", r.URL.Path)
 		fs.ServeHTTP(w, r)
 	})
 }
 
-func makeFile(from string, to url.URL, conf *config.HTTP) http.Handler {
-	path := pathOrOpaque(to)
-
+func makeFile(path string, file string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tr, _ := trace.FromContext(r.Context())
-		tr.Printf("serving file %q", path)
-		http.ServeFile(w, r, path)
+		tr.Printf("serving file %q", file)
+		http.ServeFile(w, r, file)
 	})
 }
 
-func makeCGI(from string, to url.URL, conf *config.HTTP) http.Handler {
-	from = stripDomain(from)
-	path := pathOrOpaque(to)
-	args := queryToArgs(to.RawQuery)
-
+func makeCGI(path string, cmd []string) http.Handler {
+	path = stripDomain(path)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tr, _ := trace.FromContext(r.Context())
-		tr.Debugf("exec %q %q", path, args)
+		tr.Debugf("exec %q", cmd)
 		h := cgi.Handler{
-			Path:   path,
-			Args:   args,
-			Root:   from,
+			Path:   cmd[0],
+			Args:   cmd[1:],
+			Root:   path,
 			Logger: golog.New(tr, "", golog.Lshortfile),
 			Stderr: tr,
 		}
@@ -282,32 +269,14 @@ func makeCGI(from string, to url.URL, conf *config.HTTP) http.Handler {
 	})
 }
 
-func queryToArgs(query string) []string {
-	args := []string{}
-	for query != "" {
-		comp := query
-		if i := strings.IndexAny(comp, "&;"); i >= 0 {
-			comp, query = comp[:i], comp[i+1:]
-		} else {
-			query = ""
-		}
-
-		comp, _ = url.QueryUnescape(comp)
-		args = append(args, comp)
-
-	}
-
-	return args
-}
-
-func makeRedirect(from string, to url.URL, conf *config.HTTP) http.Handler {
-	from = stripDomain(from)
+func makeRedirect(path string, to url.URL) http.Handler {
+	path = stripDomain(path)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tr, _ := trace.FromContext(r.Context())
 		target := to
 		target.RawQuery = r.URL.RawQuery
-		target.Path = adjustPath(r.URL.Path, from, to.Path)
+		target.Path = adjustPath(r.URL.Path, path, to.Path)
 		tr.Printf("redirect to %q", target.String())
 
 		http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
@@ -322,11 +291,11 @@ func makeStatus(from string, status int) http.Handler {
 	})
 }
 
-func makeProxy(from string, to url.URL, conf *config.HTTP) http.Handler {
+func makeProxy(path string, to url.URL) http.Handler {
 	proxy := &httputil.ReverseProxy{}
 	proxy.Transport = &proxyTransport{}
 
-	// Director that strips "from" from the request path, so that if we have
+	// Director that strips "path" from the request path, so that if we have
 	// this config:
 	//
 	//   /a/ -> http://dst/b
@@ -336,14 +305,14 @@ func makeProxy(from string, to url.URL, conf *config.HTTP) http.Handler {
 	//   /a/x  goes to  http://dst/b/x (not http://dst/b/a/x)
 	//   www.example.com/p/x  goes to  http://dst/q/x
 
-	// Strip the domain from `from`, if any. That is useful for the http
+	// Strip the domain from `path`, if any. That is useful for the http
 	// router, but to us is irrelevant.
-	from = stripDomain(from)
+	path = stripDomain(path)
 
 	proxy.Director = func(req *http.Request) {
 		req.URL.Scheme = to.Scheme
 		req.URL.Host = to.Host
-		req.URL.Path = adjustPath(req.URL.Path, from, to.Path)
+		req.URL.Path = adjustPath(req.URL.Path, path, to.Path)
 
 		// If the user agent is not set, prevent a fall back to the default value.
 		if _, ok := req.Header["User-Agent"]; !ok {

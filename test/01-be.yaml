@@ -8,25 +8,31 @@ reqlog:
 
 http:
   ":8450":
-    dir:
-      "/dir/": "testdata/dir"
-      "/authdir/": "testdata/dir"
-    file:
-      "/file": "testdata/file"
-      "/file/second": "testdata/dir/ñaca"
-    cgi:
-      "/cgi/": "testdata/cgi.sh?param 1;param 2"
 
-    status:
-      "/status/543": 543
-
-    diropts:
+    routes:
       "/dir/":
-        listing:
-          "/": true
-          "/withindex/": false
-          "/withoutindex/": false
-        exclude: ["/ignored\\..*"]
+        dir: "testdata/dir"
+        diropts:
+          listing:
+            "/": true
+            "/withindex/": false
+            "/withoutindex/": false
+          exclude: ["/ignored\\..*"]
+
+      "/authdir/":
+        dir: "testdata/dir"
+
+      "/file":
+        file: "testdata/file"
+
+      "/file/second":
+        file: "testdata/dir/ñaca"
+
+      "/cgi/":
+        cgi: ["testdata/cgi.sh", "param 1", "param 2"]
+
+      "/status/543":
+        status: 543
 
     auth:
       "/authdir/ñaca": "testdata/authdb.yaml"

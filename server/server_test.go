@@ -78,15 +78,12 @@ raw:
 
 http:
   "$HTTP_ADDR":
-    proxy:
-      "/be/": "$BACKEND_URL"
-      "localhost/xy/": "$BACKEND_URL"
-    file:
-      "/static/hola": "$PWD/testdata/hola"
-    dir:
-      "/dir/": "$PWD/testdata/"
-    redirect:
-      "/redir/": "http://$HTTP_ADDR/dir/"
+    routes:
+      "/be/": { proxy: "$BACKEND_URL" }
+      "localhost/xy/": { proxy: "$BACKEND_URL" }
+      "/static/hola": { file: "$PWD/testdata/hola" }
+      "/dir/": { dir: "$PWD/testdata/" }
+      "/redir/": { redirect: "http://$HTTP_ADDR/dir/" }
 `
 	configStr := strings.NewReplacer(
 		"$RAW_ADDR", rawAddr,

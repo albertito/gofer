@@ -30,37 +30,42 @@ http:
   # set up a systemd socket unit with "FileDescriptorName=name".
   # Examples: ":80", "127.0.0.1:8080", "&http".
   "&http":
-
-    # The following options all have the same structure: the route type, and
-    # within, a series of <path>: <target>.
+    # Routes indicate how to handle each request based on its path.
     # The path have the semantics of http.ServeMux.
-    # The meaning of the target is type-specific.
+    routes:
+      # Path: action.
+      "/":
+        # Serve the directory at the given path.
+        dir: "/srv/www/"
 
-    # Serve the directory at the given path.
-    dir:
-      "/": "/srv/www/"
-      #"/other": "/srv/other/"
+        # Other possible actions follow. Only one per path.
 
-    # Individual files.
-    #file:
-    #  "/a/file": "/srv/files/file"
+        # Serve a single file.
+        #file: "/srv/files/file"
 
-    # Proxy requests.
-    #proxy:
-    #  "/api/v1/": "http://localhost:8080/api/"
+        # Proxy requests.
+        #proxy: "http://localhost:8080/api/"
 
-    # Redirect to a different URL.
-    #redirect:
-    #  "/wiki": "https://wikipedia.org"
+        # Redirect to a different URL.
+        #redirect: "https://wikipedia.org"
 
-    # Execute a CGI.
-    #cgi:
-    #  "/gitweb": "/usr/share/gitweb/gitweb.cgi"
+        # Execute a CGI.
+        #cgi: ["/usr/share/gitweb/gitweb.cgi"]
 
-    # Return a specific status. Can be useful to return 404 on specific
-    # sub-paths.
-    #status:
-    #  "/notfound": 404
+        # Return a specific status.
+        #status: 404
+
+        # Options for the "dir" type.
+        diropts:
+          # Enable listing when index.html is not present?
+          listing:
+            "/": false
+            "/pub/": true
+
+          # Exclude files matching these regular expressions. They won't appear
+          # in listings, and won't be served to users (404 will be returned
+          # instead).
+          #exclude: [".*\\.secret", ".*/config"]
 
     # Enforce authentication on these paths. The target is the file containing
     # the user and passwords.
@@ -71,23 +76,6 @@ http:
     #setheader:
     #  "/":
     #    "My-Header": "my header value"
-
-    # Configure options for the "dir" type, so we can customize some behaviour
-    # per path.
-    diropts:
-      "/":
-        # Enable listing when index.html is not present?
-        listing:
-          "/": false
-          "/pub/": true
-
-        # Exclude files matching these regular expressions. They won't appear
-        # in listings, and won't be served to users (404 will be returned
-        # instead).
-        #exclude: [".*\\.secret", ".*/config"]
-
-      #"/other":
-      #  listing: true
 
     # Enable request logging. The target is a log name, which should match an
     # entry in the top-level reqlog configuration (see above).
@@ -102,9 +90,11 @@ https:
     certs: "/etc/letsencrypt/live/"
 
     # The rest of the fields are the same as for http above.
-    proxy:
-      "/": "http://localhost:8080/"
-      "/local/": "http://localhost:99/"
+    routes:
+      "/":
+        proxy: "http://localhost:8080/"
+      "/local/":
+        proxy: "http://localhost:99/"
 
 
 # Raw socket proxying.
