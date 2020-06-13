@@ -219,15 +219,6 @@ func adjustPath(req string, from string, to string) string {
 	return dst
 }
 
-func pathOrOpaque(u url.URL) string {
-	if u.Path != "" {
-		return u.Path
-	}
-
-	// This happens for relative paths, which are fine in this context.
-	return u.Opaque
-}
-
 func makeDir(path string, dir string, opts config.DirOpts) http.Handler {
 	fs := http.FileServer(NewFS(http.Dir(dir), opts))
 

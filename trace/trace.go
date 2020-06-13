@@ -120,14 +120,6 @@ func (e *EventLog) Printf(format string, a ...interface{}) {
 		fmt.Sprintf(format, a...))
 }
 
-// Debugf adds the message to the EventLog, with a debugging level.
-func (e *EventLog) Debugf(format string, a ...interface{}) {
-	e.e.Printf(format, a...)
-
-	log.Log(log.Debug, 1, "%#p %s %s: %s", e, e.family, e.title,
-		fmt.Sprintf(format, a...))
-}
-
 // Errorf adds the message to the EventLog, with an error level.
 func (e *EventLog) Errorf(format string, a ...interface{}) error {
 	err := fmt.Errorf(format, a...)
