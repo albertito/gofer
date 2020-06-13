@@ -1,3 +1,6 @@
+// +build ignore
+
+// Fetch an URL, and check if the response matches what we expect.
 package main
 
 import (

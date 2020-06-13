@@ -24,4 +24,14 @@ test: vet
 	go test ./...
 	setsid -w ./test/test.sh
 
-.PHONY: gofer vet test
+cover:
+	rm -r .cover/
+	mkdir .cover/
+	go test -tags coverage \
+		-covermode=count \
+		-coverprofile=".cover/pkg-tests.out"\
+		-coverpkg=./... ./...
+	COVER_DIR=$$PWD/.cover/ setsid -w ./test/test.sh
+	COVER_DIR=$$PWD/.cover/ ./test/util/cover-report.sh
+
+.PHONY: gofer vet test cover
