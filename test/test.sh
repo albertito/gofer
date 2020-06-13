@@ -212,6 +212,7 @@ done
 # Bad auth.
 for base in \
 	http://oneuser:bad@localhost:8441 \
+	http://unkuser:bad@localhost:8441 \
 	http://twouser:bad@localhost:8441 ;
 do
 	echo "### Bad auth for $base"
