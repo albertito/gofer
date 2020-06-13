@@ -32,6 +32,6 @@ cover:
 		-coverprofile=".cover/pkg-tests.out"\
 		-coverpkg=./... ./...
 	COVER_DIR=$$PWD/.cover/ setsid -w ./test/test.sh
-	COVER_DIR=$$PWD/.cover/ ./test/util/cover-report.sh
+	COVER_DIR=$$PWD/.cover/ setsid -w ./test/util/cover-report.sh
 
 .PHONY: gofer vet test cover

@@ -2,14 +2,11 @@
 
 set -e
 
-if [ "$V" == "1" ]; then
-	set -v
-fi
-
-UTILDIR="$( realpath `dirname "${0}"` )/"
+. $(dirname ${0})/lib.sh
+init
 
 # Run from the repo root.
-cd "$(realpath `dirname ${0}`)/../../"
+cd ../
 
 echo "## Coverage"
 
