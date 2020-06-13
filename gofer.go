@@ -16,7 +16,9 @@ import (
 
 // Flags.
 var (
-	configfile = flag.String("configfile", "gofer.yaml", "Configuration file")
+	configFile  = flag.String("configfile", "gofer.yaml", "Configuration file")
+	configCheck = flag.Bool("configcheck", false,
+		"Check the configuration and exit afterwards")
 )
 
 func main() {
@@ -24,9 +26,20 @@ func main() {
 	log.Init()
 	log.Infof("gofer starting (%s, %s)", debug.Version, debug.SourceDateStr)
 
-	conf, err := config.Load(*configfile)
+	conf, err := config.Load(*configFile)
 	if err != nil {
 		log.Fatalf("error reading config file: %v", err)
+	}
+
+	if errs := conf.Check(); len(errs) > 0 {
+		for _, err := range errs {
+			log.Errorf("%v", err)
+		}
+		log.Fatalf("invalid configuration")
+	}
+	if *configCheck {
+		log.Infof("config ok")
+		return
 	}
 
 	go signalHandler()

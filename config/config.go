@@ -78,6 +78,72 @@ func (c Config) ToString() (string, error) {
 	return string(d), err
 }
 
+func (c Config) Check() []error {
+	errs := []error{}
+	for addr, h := range c.HTTP {
+		errs = append(errs, h.Check(c, addr)...)
+
+	}
+
+	for addr, h := range c.HTTPS {
+		errs = append(errs, h.Check(c, addr)...)
+
+		// Certs must be set for HTTPS.
+		if h.Certs == "" {
+			errs = append(errs,
+				fmt.Errorf("%q: certs must be set", addr))
+		}
+	}
+
+	for addr, r := range c.Raw {
+		if _, ok := c.ReqLog[r.ReqLog]; r.ReqLog != "" && !ok {
+			errs = append(errs,
+				fmt.Errorf("%q: unknown reqlog %q", addr, r.ReqLog))
+		}
+	}
+	return errs
+}
+
+func (h HTTP) Check(c Config, addr string) []error {
+	errs := []error{}
+
+	if len(h.Routes) == 0 {
+		errs = append(errs, fmt.Errorf("%q: missing routes", addr))
+	}
+
+	for path, r := range h.Routes {
+		if len(r.DirOpts.Listing)+len(r.DirOpts.Exclude) > 0 && r.Dir == "" {
+			errs = append(errs,
+				fmt.Errorf("%q: %q: diropts is set on non-dir route",
+					addr, path))
+		}
+
+		nSet := nTrue(
+			r.Dir != "",
+			r.File != "",
+			r.Proxy != nil,
+			r.Redirect != nil,
+			len(r.CGI) > 0,
+			r.Status > 0)
+		if nSet > 1 {
+			errs = append(errs,
+				fmt.Errorf("%q: %q: too many actions set", addr, path))
+		} else if nSet == 0 {
+			errs = append(errs,
+				fmt.Errorf("%q: %q: action missing", addr, path))
+		}
+	}
+
+	for path, name := range h.ReqLog {
+		if _, ok := c.ReqLog[name]; !ok {
+			errs = append(errs,
+				fmt.Errorf("%q: %q: unknown reqlog %q", addr, path, name))
+		}
+	}
+
+	return errs
+}
+
 func Load(filename string) (*Config, error) {
 	contents, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -137,4 +203,14 @@ func (u *URL) URL() url.URL {
 func (u URL) String() string {
 	p := u.URL()
 	return p.String()
+}
+
+func nTrue(bs ...bool) int {
+	n := 0
+	for _, b := range bs {
+		if b {
+			n++
+		}
+	}
+	return n
 }
