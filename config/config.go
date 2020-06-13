@@ -11,58 +11,57 @@ import (
 )
 
 type Config struct {
-	ControlAddr string `yaml:"control_addr"`
+	ControlAddr string `yaml:"control_addr,omitempty"`
 
 	// Map address -> config.
-	HTTP  map[string]HTTP
-	HTTPS map[string]HTTPS
-	Raw   map[string]Raw
+	HTTP  map[string]HTTP  `yaml:",omitempty"`
+	HTTPS map[string]HTTPS `yaml:",omitempty"`
+	Raw   map[string]Raw   `yaml:",omitempty"`
 
-	ReqLog map[string]ReqLog
+	ReqLog map[string]ReqLog `yaml:",omitempty"`
 }
 
 type HTTP struct {
 	Routes map[string]Route
 
-	Auth map[string]string
+	Auth map[string]string `yaml:",omitempty"`
 
-	SetHeader map[string]map[string]string
+	SetHeader map[string]map[string]string `yaml:",omitempty"`
 
-	ReqLog map[string]string
+	ReqLog map[string]string `yaml:",omitempty"`
 }
 
 type HTTPS struct {
 	HTTP  `yaml:",inline"`
-	Certs string
+	Certs string `yaml:",omitempty"`
 }
 
 type Route struct {
-	Dir      string
-	File     string
-	Proxy    *URL
-	Redirect *URL
-	CGI      []string
-	Status   int
-	DirOpts  DirOpts
+	Dir      string   `yaml:",omitempty"`
+	File     string   `yaml:",omitempty"`
+	Proxy    *URL     `yaml:",omitempty"`
+	Redirect *URL     `yaml:",omitempty"`
+	CGI      []string `yaml:",omitempty"`
+	Status   int      `yaml:",omitempty"`
+	DirOpts  DirOpts  `yaml:",omitempty"`
 }
 
 type DirOpts struct {
-	Listing map[string]bool
-	Exclude []Regexp
+	Listing map[string]bool `yaml:",omitempty"`
+	Exclude []Regexp        `yaml:",omitempty"`
 }
 
 type Raw struct {
-	Addr   string
-	Certs  string
-	To     string
-	ToTLS  bool `yaml:"to_tls"`
-	ReqLog string
+	Certs  string `yaml:",omitempty"`
+	To     string `yaml:",omitempty"`
+	ToTLS  bool   `yaml:"to_tls,omitempty"`
+	ReqLog string `yaml:",omitempty"`
 }
 
 type ReqLog struct {
-	File    string
-	BufSize int
-	Format  string
+	File    string `yaml:",omitempty"`
+	BufSize int    `yaml:",omitempty"`
+	Format  string `yaml:",omitempty"`
 }
 
 func (c Config) String() string {
@@ -160,6 +159,7 @@ func LoadString(contents string) (*Config, error) {
 
 // Wrapper to simplify regexp in configuration.
 type Regexp struct {
+	orig string
 	*regexp.Regexp
 }
 
@@ -174,8 +174,13 @@ func (re *Regexp) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
+	re.orig = s
 	re.Regexp = rx
 	return nil
+}
+
+func (re Regexp) MarshalYAML() (interface{}, error) {
+	return re.orig, nil
 }
 
 // Wrapper to simplify URLs in configuration.
@@ -194,6 +199,13 @@ func (u *URL) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	*u = URL(*x)
 	return nil
+}
+
+func (u *URL) MarshalYAML() (interface{}, error) {
+	if u == nil {
+		return "", nil
+	}
+	return u.String(), nil
 }
 
 func (u *URL) URL() url.URL {

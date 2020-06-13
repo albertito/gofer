@@ -28,19 +28,26 @@ else
 fi
 ( cd util; go build exp.go )
 
-
-# Run gofer in the background (sets $PID to its process id).
-function gofer() {
+function set_cover() {
 	# Set the coverage arguments each time, as we don't want the different
 	# runs to override the generated profile.
 	if [ "$COVER_DIR" != "" ]; then
 		COVER_ARGS="-test.run=^TestRunMain$ \
 			-test.coverprofile=$COVER_DIR/it-`date +%s.%N`.out"
 	fi
+}
 
-	$SYSTEMD_ACTIVATE ../gofer $COVER_ARGS \
-		-v=3 \
-		"$@" >> .out.log 2>&1 &
+function gofer() {
+	set_cover
+	../gofer $COVER_ARGS -v=3  "$@"  >> .out.log 2>&1
+}
+
+# Run gofer in the background (sets $PID to its process id).
+function gofer_bg() {
+	# Duplicate gofer() because if we put the function in the background,
+	# the pid will be of bash, not the subprocess.
+	set_cover
+	../gofer $COVER_ARGS -v=3  "$@"  >> .out.log 2>&1 &
 	PID=$!
 }
 
@@ -60,10 +67,6 @@ function generate_certs() {
 		go run ${UTILDIR}/generate_cert.go \
 			-ca -duration=1h --host=localhost
 	)
-}
-
-function curl() {
-	curl --cacert ".certs/localhost/fullchain.pem" "$@"
 }
 
 function exp() {
@@ -99,13 +102,13 @@ echo "## Setup"
 rm -f .01-fe.requests.log .01-be.requests.log
 
 # Launch the backend serving static files and CGI.
-gofer -logfile=.01-be.log -configfile=01-be.yaml
+gofer_bg -logfile=.01-be.log -configfile=01-be.yaml
 BE_PID=$PID
 wait_until_ready 8450
 
 # Launch the test instance.
 generate_certs
-gofer -logfile=.01-fe.log -configfile=01-fe.yaml
+gofer_bg -logfile=.01-fe.log -configfile=01-fe.yaml
 FE_PID=$PID
 wait_until_ready 8441  # http
 wait_until_ready 8442  # https
@@ -118,6 +121,21 @@ snoop
 # Test cases.
 #
 echo "## Tests"
+
+echo "### Config"
+
+curl -sS "http://127.0.0.1:8440/debug/config" > .fe-debug-conf
+if ! gofer -configfile=.fe-debug-conf -configcheck; then
+	echo "Failed to parse FE config from monitoring output"
+	exit 1
+fi
+
+curl -sS "http://127.0.0.1:8459/debug/config" > .be-debug-conf
+if ! gofer -configfile=.be-debug-conf -configcheck; then
+	echo "Failed to parse BE config from monitoring output"
+	exit 1
+fi
+
 
 # Common tests, for both servers.
 for base in \
@@ -243,6 +261,9 @@ exp https://localhost:8442/dar/ -bodyre '<a href="%C3%B1aca">ñaca</a>'
 # We rely on the BE having this, so check to avoid false positives due to
 # misconfiguration.
 exp http://localhost:8450/file/second -body "tracañaca\n"
+
+# Check that the debug / handler only serves /.
+exp "http://127.0.0.1:8459/notexists" -status 404
 
 
 echo "### Raw proxying"
