@@ -14,13 +14,13 @@ build
 rm -f .01-fe.requests.log .01-be.requests.log
 
 # Launch the backend serving static files and CGI.
-gofer_bg -logfile=.01-be.log -configfile=01-be.yaml
+gofer_bg -v=3 -logfile=.01-be.log -configfile=01-be.yaml
 BE_PID=$PID
 wait_until_ready 8450
 
 # Launch the test instance.
 generate_certs
-gofer_bg -logfile=.01-fe.log -configfile=01-fe.yaml
+gofer_bg -v=3 -logfile=.01-fe.log -configfile=01-fe.yaml
 FE_PID=$PID
 wait_until_ready 8441  # http
 wait_until_ready 8442  # https

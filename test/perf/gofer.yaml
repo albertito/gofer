@@ -1,0 +1,17 @@
+
+control_addr: "127.0.0.1:8459"
+
+http:
+  ":8450":
+    routes:
+      "/":
+        dir: "testdata/dir"
+
+    #reqlog:
+    #  "/": requests
+
+#reqlog:
+#  "requests":
+#    file: ".gofer-perf.requests.log"
+#    bufsize: 2048
+

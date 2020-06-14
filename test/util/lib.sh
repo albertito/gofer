@@ -39,7 +39,7 @@ function set_cover() {
 
 function gofer() {
 	set_cover
-	../gofer $COVER_ARGS -v=3  "$@"  >> .out.log 2>&1
+	../gofer $COVER_ARGS  "$@"  >> .out.log 2>&1
 }
 
 # Run gofer in the background (sets $PID to its process id).
@@ -47,7 +47,7 @@ function gofer_bg() {
 	# Duplicate gofer() because if we put the function in the background,
 	# the pid will be of bash, not the subprocess.
 	set_cover
-	../gofer $COVER_ARGS -v=3  "$@"  >> .out.log 2>&1 &
+	../gofer $COVER_ARGS  "$@"  >> .out.log 2>&1 &
 	PID=$!
 }
 
