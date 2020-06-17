@@ -48,6 +48,13 @@ if ! gofer -configfile=.be-debug-conf -configcheck; then
 	exit 1
 fi
 
+gofer -configfile=01-be.yaml -configprint > .be-print-conf
+if diff -q 01-be.yaml .be-print-conf; then
+	echo "Printed and debug configs differ:"
+	diff 01-be.yaml .be-print-conf
+	exit 1
+fi
+
 
 # Common tests, for both servers.
 for base in \

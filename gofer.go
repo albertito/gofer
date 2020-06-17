@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,6 +20,8 @@ var (
 	configFile  = flag.String("configfile", "gofer.yaml", "Configuration file")
 	configCheck = flag.Bool("configcheck", false,
 		"Check the configuration and exit afterwards")
+	configPrint = flag.Bool("configprint", false,
+		"Check the configuration, print it, and exit afterwards")
 )
 
 func main() {
@@ -36,6 +39,14 @@ func main() {
 			log.Errorf("%v", err)
 		}
 		log.Fatalf("invalid configuration")
+	}
+	if *configPrint {
+		s, err := conf.ToString()
+		if err != nil {
+			log.Fatalf("%v", err)
+		}
+		fmt.Print(s)
+		return
 	}
 	if *configCheck {
 		log.Infof("config ok")
