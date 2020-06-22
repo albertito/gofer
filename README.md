@@ -7,11 +7,8 @@ proxy.
 
 ## Status
 
-Gofer is under active development, so breaking changes are expected.
-
+Gofer is under active development, and breaking changes are expected.
 It is fully functional and being used to serve some small websites.
-Performance for serving static files is comparable with a default nginx
-configuration.
 
 
 ## Install
