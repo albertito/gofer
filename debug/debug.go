@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"net/http"
 	"os"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -40,11 +41,13 @@ func ServeDebugging(addr string, conf *config.Config) {
 
 	indexData := struct {
 		Version    string
+		GoVersion  string
 		SourceDate time.Time
 		StartTime  time.Time
 		Args       []string
 	}{
 		Version:    Version,
+		GoVersion:  runtime.Version(),
 		SourceDate: SourceDate,
 		StartTime:  time.Now(),
 		Args:       os.Args,
@@ -90,7 +93,8 @@ var htmlIndex = template.Must(template.New("index").Funcs(
     <h1>gofer debugging</h1>
 
 	version {{.Version}}<br>
-	source date {{.SourceDate.Format "2006-01-02 15:04:05 -0700"}}<p>
+	source date {{.SourceDate.Format "2006-01-02 15:04:05 -0700"}}<br>
+	built with: {{.GoVersion}}<p>
 
 	started {{.StartTime.Format "Mon, 2006-01-02 15:04:05 -0700"}}<br>
 	up for {{.StartTime | since}}<p>
