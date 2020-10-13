@@ -70,6 +70,17 @@ func forward(src net.Conn, dstAddr string, dstTLS bool, rlog *reqlog.Log) {
 
 	if err != nil {
 		tr.Errorf("%s error dialing %v : %v", src.LocalAddr(), dstAddr, err)
+		if rlog != nil {
+			rlog.Log(&reqlog.Event{
+				T: time.Now(),
+				R: &reqlog.RawRequest{
+					RemoteAddr: src.RemoteAddr(),
+					LocalAddr:  src.LocalAddr(),
+				},
+				Status:  500,
+				Latency: time.Since(start),
+			})
+		}
 		return
 	}
 	defer dst.Close()

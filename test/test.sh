@@ -196,5 +196,12 @@ echo "### Raw proxying"
 exp http://localhost:8445/file -body "ñaca\n"
 exp https://localhost:8446/file -body "ñaca\n"
 
+true < /dev/tcp/localhost/8447
+if ! waitgrep -q ":8447 = 500" .01-fe.requests.log; then
+	echo "raw connection to :8447: error entry not found"
+	exit 1
+fi
+
+
 echo "## Success"
 snoop

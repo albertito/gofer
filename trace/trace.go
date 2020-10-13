@@ -64,18 +64,6 @@ func (t *Trace) Errorf(format string, a ...interface{}) error {
 	return err
 }
 
-// Error marks the trace as having seen an error, and also logs it to the
-// trace's log.
-func (t *Trace) Error(err error) error {
-	t.t.SetError()
-	t.t.LazyPrintf("error: %v", err)
-
-	log.Log(log.Info, 1, "%#p %s %s error: %s", t, t.family, t.title,
-		err.Error())
-
-	return err
-}
-
 // SetError marks the trace as having received an error, without emitting any
 // particular output.
 func (t *Trace) SetError() {

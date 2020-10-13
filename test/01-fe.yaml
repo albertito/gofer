@@ -50,3 +50,6 @@ raw:
     certs: ".certs"
     reqlog: "requests"
 
+  ":8447":
+    to: "localhost:0"
+    reqlog: "requests"
