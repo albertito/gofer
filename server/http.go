@@ -220,7 +220,7 @@ func adjustPath(req string, from string, to string) string {
 }
 
 func makeDir(path string, dir string, opts config.DirOpts) http.Handler {
-	fs := http.FileServer(NewFS(http.Dir(dir), opts))
+	fs := FileServer(NewFS(http.Dir(dir), opts))
 
 	path = stripDomain(path)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
