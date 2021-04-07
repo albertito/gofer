@@ -28,8 +28,8 @@ func httpServer(addr string, conf config.HTTP) *http.Server {
 	srv := &http.Server{
 		Addr: addr,
 
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		ReadTimeout:  60 * time.Second,
+		WriteTimeout: 60 * time.Second,
 
 		ErrorLog: golog.New(ev, "", golog.Lshortfile),
 	}
