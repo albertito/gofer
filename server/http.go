@@ -400,6 +400,15 @@ func (w *statusWriter) ReadFrom(src io.Reader) (int64, error) {
 	return n, err
 }
 
+// Flush is optional but makes it support the http.Flusher interface, which is
+// needed for things like server-side events.
+func (w *statusWriter) Flush() {
+	flusher, ok := w.ResponseWriter.(http.Flusher)
+	if ok {
+		flusher.Flush()
+	}
+}
+
 func SetHeader(parent http.Handler, hdrs map[string]string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tr, _ := trace.FromContext(r.Context())
