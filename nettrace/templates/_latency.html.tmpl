@@ -1,0 +1,26 @@
+<table class="latencies"><tr>
+<td>Count: {{.Latencies.Count}}</td>
+<td>Avg: {{.Latencies.Avg | roundDuration}}</td>
+<td>Min: {{.Latencies.Min | roundDuration}}</td>
+<td>Max: {{.Latencies.Max | roundDuration}}</td>
+</tr></table>
+<p>
+
+<table class="latencies">
+<tr><th>Bucket</th><th>Count</th><th>%</th><th></th><th>Cumulative</th></tr>
+{{range .Latencies.Counts}}
+<tr>
+  <td>
+	{{if gt .Count 0}}<a href="?fam={{$.Family}}&b={{.BucketIdx}}">
+		&ge;{{.Start}}</a>
+	{{else}}<span class="muted">&ge;{{.Start}}</span>
+	{{end}}
+  </td>
+  <td>{{.Count}}</td>
+  <td>{{.Percent | printf "%5.2f"}}%</td>
+  <td><meter max="100" value="{{.Percent}}">
+  	{{.Percent | printf "%.2f"}}%</meter>
+  <td>{{.CumPct | printf "%5.2f"}}%</td>
+</tr>
+{{end}}
+</table>

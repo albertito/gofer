@@ -12,6 +12,7 @@ import (
 	_ "net/http/pprof"
 
 	"blitiri.com.ar/go/gofer/config"
+	"blitiri.com.ar/go/gofer/nettrace"
 	"blitiri.com.ar/go/log"
 )
 
@@ -54,6 +55,7 @@ func ServeDebugging(addr string, conf *config.Config) {
 	}
 
 	http.HandleFunc("/debug/config", DumpConfigFunc(conf))
+	nettrace.RegisterHandler(http.DefaultServeMux)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
@@ -103,12 +105,7 @@ var htmlIndex = template.Must(template.New("index").Funcs(
 
     <ul>
       <li><a href="/debug/config">configuration</a>
-	  <li>traces <small><a href="https://godoc.org/golang.org/x/net/trace">
-            (ref)</a></small>
-        <ul>
-          <li><a href="/debug/requests?exp=1">requests (short-lived)</a>
-          <li><a href="/debug/events?exp=1">events (long-lived)</a>
-        </ul>
+      <li><a href="/debug/traces">traces</a>
       <li><a href="/debug/vars">exported variables</a>
 	       <small><a href="https://golang.org/pkg/expvar/">(ref)</a></small>
       <li><a href="/debug/pprof">pprof</a>

@@ -22,7 +22,7 @@ type Log struct {
 	reopen chan bool
 	tmpl   *template.Template
 
-	tr *trace.EventLog
+	tr *trace.Trace
 }
 
 type Event struct {
@@ -107,7 +107,8 @@ func New(path string, nbuf int, format string) (*Log, error) {
 
 	h.evs = make(chan *Event, nbuf)
 	h.reopen = make(chan bool, 1)
-	h.tr = trace.NewEventLog("reqlog", path)
+	h.tr = trace.New("reqlog", path)
+	h.tr.SetMaxEvents(1000)
 
 	go h.run()
 	return h, nil

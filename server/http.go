@@ -23,7 +23,8 @@ import (
 )
 
 func httpServer(addr string, conf config.HTTP) *http.Server {
-	ev := trace.NewEventLog("httpserver", addr)
+	tr := trace.New("httpserver", addr)
+	tr.SetMaxEvents(1000)
 
 	srv := &http.Server{
 		Addr: addr,
@@ -31,7 +32,7 @@ func httpServer(addr string, conf config.HTTP) *http.Server {
 		ReadTimeout:  60 * time.Second,
 		WriteTimeout: 60 * time.Second,
 
-		ErrorLog: golog.New(ev, "", golog.Lshortfile),
+		ErrorLog: golog.New(tr, "", golog.Lshortfile),
 	}
 
 	mux := http.NewServeMux()
