@@ -48,10 +48,19 @@ if ! gofer -configfile=.be-debug-conf -configcheck; then
 	exit 1
 fi
 
-gofer -configfile=01-be.yaml -configprint > .be-print-conf
-if diff -q 01-be.yaml .be-print-conf; then
-	echo "Printed and debug configs differ:"
-	diff 01-be.yaml .be-print-conf
+# Use gofer to print the parsed config. Strip out the coverage summary output
+# (if present), which unfortunately cannot be disabled.
+../gofer $COVER_ARGS -configfile=01-be.yaml -configprint \
+	| grep -v -E '^(PASS|coverage: .* of statements in .*)$' \
+	> .be-print-conf
+if ! diff -q testdata/expected-printed-01-be-config .be-print-conf; then
+	echo "Printed config is different than expected:"
+	diff -u testdata/expected-printed-01-be-config .be-print-conf
+	exit 1
+fi
+
+if ! gofer -configfile=.be-print-conf -configcheck; then
+	echo "Failed to parse BE config from -configprint"
 	exit 1
 fi
 

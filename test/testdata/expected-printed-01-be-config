@@ -1,0 +1,38 @@
+control_addr: 127.0.0.1:8459
+http:
+    :8450:
+        routes:
+            /authdir/:
+                dir: testdata/dir
+            /cgi/:
+                cgi:
+                    - testdata/cgi.sh
+                    - param 1
+                    - param 2
+            /dir/:
+                dir: testdata/dir
+                diropts:
+                    listing:
+                        /: true
+                        /withindex/: false
+                        /withoutindex/: false
+                    exclude:
+                        - /ignored\..*
+            /file:
+                file: testdata/file
+            /file/second:
+                file: testdata/dir/ñaca
+            /status/543:
+                status: 543
+        auth:
+            /authdir/withoutindex/: testdata/authdb.yaml
+            /authdir/ñaca: testdata/authdb.yaml
+        setheader:
+            /file:
+                X-My-Header: my lovely header
+        reqlog:
+            /: requests
+reqlog:
+    requests:
+        file: .01-be.requests.log
+        bufsize: 10
