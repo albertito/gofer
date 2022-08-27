@@ -38,15 +38,17 @@ func init() {
 }
 
 func ServeDebugging(addr string, conf *config.Config) {
-	log.Infof("debugging HTTP server listening on %q", addr)
+	hostname, _ := os.Hostname()
 
 	indexData := struct {
+		Hostname   string
 		Version    string
 		GoVersion  string
 		SourceDate time.Time
 		StartTime  time.Time
 		Args       []string
 	}{
+		Hostname:   hostname,
 		Version:    Version,
 		GoVersion:  runtime.Version(),
 		SourceDate: SourceDate,
@@ -66,6 +68,7 @@ func ServeDebugging(addr string, conf *config.Config) {
 		}
 	})
 
+	log.Infof("debugging HTTP server listening on %q", addr)
 	err := http.ListenAndServe(addr, nil)
 	log.Errorf("debugging HTTP server died: %v", err)
 }
@@ -83,38 +86,56 @@ func DumpConfigFunc(conf *config.Config) http.HandlerFunc {
 	})
 }
 
+// Functions available inside the templates.
+var tmplFuncs = template.FuncMap{
+	"since": time.Since,
+	"roundDuration": func(d time.Duration) time.Duration {
+		return d.Round(time.Second)
+	},
+}
+
 // Static index for the debugging website.
-var htmlIndex = template.Must(template.New("index").Funcs(
-	template.FuncMap{"since": time.Since}).Parse(
-	`<!DOCTYPE html>
+var htmlIndex = template.Must(
+	template.New("index").Funcs(tmplFuncs).Parse(
+		`<!DOCTYPE html>
 <html>
-  <head>
-    <title>gofer debugging</title>
-  </head>
-  <body>
-    <h1>gofer debugging</h1>
 
-	version {{.Version}}<br>
-	source date {{.SourceDate.Format "2006-01-02 15:04:05 -0700"}}<br>
-	built with: {{.GoVersion}}<p>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Hostname}}: gofer debugging</title>
+<style type="text/css">
+  body {
+    font-family: sans-serif;
+  }
+</style>
+</head>
 
-	started {{.StartTime.Format "Mon, 2006-01-02 15:04:05 -0700"}}<br>
-	up for {{.StartTime | since}}<p>
+<body>
+  <h1>gofer @{{.Hostname}}</h1>
 
-	args: <tt>{{.Args}}</tt><p>
+  version {{.Version}}<br>
+  source date {{.SourceDate.Format "2006-01-02 15:04:05 -0700"}}<br>
+  built with: {{.GoVersion}}<p>
 
-    <ul>
-      <li><a href="/debug/config">configuration</a>
-      <li><a href="/debug/traces">traces</a>
-      <li><a href="/debug/vars">exported variables</a>
-	       <small><a href="https://golang.org/pkg/expvar/">(ref)</a></small>
-      <li><a href="/debug/pprof">pprof</a>
-          <small><a href="https://golang.org/pkg/net/http/pprof/">
-            (ref)</a></small>
-        <ul>
-          <li><a href="/debug/pprof/goroutine?debug=1">goroutines</a>
-        </ul>
-    </ul>
-  </body>
+  started {{.StartTime.Format "Mon, 2006-01-02 15:04:05 -0700"}}<br>
+  up for {{.StartTime | since | roundDuration}}<br>
+  os hostname <i>{{.Hostname}}</i><br>
+  <p>
+
+  args: <tt>{{.Args}}</tt><p>
+
+  <ul>
+    <li><a href="/debug/config">configuration</a>
+    <li><a href="/debug/traces">traces</a>
+    <li><a href="/debug/vars">exported variables</a>
+         <small><a href="https://golang.org/pkg/expvar/">(ref)</a></small>
+    <li><a href="/debug/pprof">pprof</a>
+        <small><a href="https://golang.org/pkg/net/http/pprof/">
+          (ref)</a></small>
+      <ul>
+        <li><a href="/debug/pprof/goroutine?debug=1">goroutines</a>
+      </ul>
+  </ul>
+</body>
 </html>
 `))
