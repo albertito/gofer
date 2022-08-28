@@ -65,7 +65,7 @@ function generate_certs() {
 	(
 		cd .certs/localhost
 		go run ${UTILDIR}/generate_cert.go \
-			-ca -duration=1h --host=localhost
+			-ca -validfor=1h --host=localhost
 	)
 }
 
