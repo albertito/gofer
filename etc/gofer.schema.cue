@@ -24,9 +24,9 @@ https?:
 
 #http: {
 	routes: [string]: {
-		dir?: string
-		file?: string
-		proxy?: string
+		dir?:      string
+		file?:     string
+		proxy?:    string
 		redirect?: string
 		cgi?: [string, ...string]
 		status?: int
@@ -39,7 +39,7 @@ https?:
 		}
 
 		// If diropts is set, then dir must be set too.
-		if diropts != null {
+		if diropts != _|_ {
 			dir: string
 		}
 
