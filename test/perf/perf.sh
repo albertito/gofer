@@ -13,14 +13,14 @@ function nginx_bg() {
 export DURATION=${DURATION:-5s}
 
 function runwrk() {
-	wrk -d $DURATION -s perf/report.lua "$@"
+	wrk -t 1 -c 1 -d $DURATION -s perf/report.lua "$@"
 }
 
 echo "## Performance"
 
 echo "### Setup"
 
-gofer_bg -logfile=.perf.log -configfile=perf/gofer.yaml
+GOMAXPROCS=2 gofer_bg -logfile=.perf.log -configfile=perf/gofer.yaml
 GOFER_PID=$PID
 wait_until_ready 8450
 
