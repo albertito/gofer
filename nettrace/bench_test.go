@@ -37,3 +37,21 @@ func BenchmarkTrace_1000(b *testing.B) {
 func BenchmarkTrace_10000(b *testing.B) {
 	runBench(b, 10000)
 }
+
+func BenchmarkNewAndFinish(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		tr := New("bench", "test")
+		tr.Finish()
+	}
+}
+
+func BenchmarkPrintf(b *testing.B) {
+	tr := New("bench", "test")
+	defer tr.Finish()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		// Keep this without any formatting, so we measure our code instead of
+		// the performance of fmt.Sprintf.
+		tr.Printf("this is printf")
+	}
+}
