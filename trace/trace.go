@@ -44,8 +44,10 @@ func (t *Trace) SetMaxEvents(n int) {
 func (t *Trace) Printf(format string, a ...interface{}) {
 	t.t.Printf(format, a...)
 
-	log.Log(log.Debug, 1, "%#p %s %s: %s",
-		t, t.family, t.title, fmt.Sprintf(format, a...))
+	if log.Default.Level <= log.Debug {
+		log.Log(log.Debug, 1, "%#p %s %s: %s", t, t.family, t.title,
+			fmt.Sprintf(format, a...))
+	}
 }
 
 // Errorf adds this message to the trace's log, with an error level.
