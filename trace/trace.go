@@ -44,14 +44,6 @@ func (t *Trace) SetMaxEvents(n int) {
 func (t *Trace) Printf(format string, a ...interface{}) {
 	t.t.Printf(format, a...)
 
-	log.Log(log.Debug, 1, "%#p %s %s: %s", t, t.family, t.title,
-		fmt.Sprintf(format, a...))
-}
-
-// Debugf adds this message to the trace's log, with a debugging level.
-func (t *Trace) Debugf(format string, a ...interface{}) {
-	t.t.Printf(format, a...)
-
 	log.Log(log.Debug, 1, "%#p %s %s: %s",
 		t, t.family, t.title, fmt.Sprintf(format, a...))
 }

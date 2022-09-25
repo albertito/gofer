@@ -249,7 +249,7 @@ func makeCGI(path string, cmd []string) http.Handler {
 	path = stripDomain(path)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tr, _ := trace.FromContext(r.Context())
-		tr.Debugf("exec %q", cmd)
+		tr.Printf("exec %q", cmd)
 		h := cgi.Handler{
 			Path:   cmd[0],
 			Args:   cmd[1:],
