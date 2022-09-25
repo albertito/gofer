@@ -35,16 +35,16 @@ snoop
 
 for s in 1k 10k 100k 250k 500k 1M 10M; do
 	echo "### Size: $s"
-	truncate -s $s testdata/dir/perf-$s
+	yes y | head -c $s > testdata/dir/perf-$s.txt
 
 	echo "#### gofer"
-	runwrk "http://localhost:8450/perf-$s"
+	runwrk "http://localhost:8450/perf-$s.txt"
 	mv wrkout.csv .perf-out/gofer-$s.csv
 	echo
 	snoop
 
 	echo "#### nginx"
-	runwrk "http://localhost:8077/perf-$s"
+	runwrk "http://localhost:8077/perf-$s.txt"
 	mv wrkout.csv .perf-out/nginx-$s.csv
 	echo
 	snoop
