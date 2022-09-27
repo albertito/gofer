@@ -16,7 +16,7 @@ It is fully functional and being used to serve some small websites.
 gofer is written in Go.
 
 ```sh
-go get blitiri.com.ar/go/gofer
+go install blitiri.com.ar/go/gofer@latest
 ```
 
 
