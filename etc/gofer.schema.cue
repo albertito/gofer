@@ -19,7 +19,14 @@ http?:
 
 https?:
 	[string]: close(#http & {
-		certs: string
+		certs?: string
+
+		autocerts?: {
+			hosts: [string, ...string]
+			cachedir?: string
+			email?:    string
+			acmeurl?:  string
+		}
 	})
 
 #http: {
@@ -42,7 +49,6 @@ https?:
 		if diropts != _|_ {
 			dir: string
 		}
-
 	}
 
 	auth?: [string]: string

@@ -19,7 +19,7 @@ func Raw(addr string, conf config.Raw) {
 
 	var tlsConfig *tls.Config
 	if conf.Certs != "" {
-		tlsConfig, err = util.LoadCerts(conf.Certs)
+		tlsConfig, err = util.LoadCertsFromDir(conf.Certs)
 		if err != nil {
 			log.Fatalf("error loading certs: %v", err)
 		}

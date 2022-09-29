@@ -86,8 +86,29 @@ http:
 # HTTPS servers.
 https:
   "&https":
+    # Automatically get TLS certificates.
+    # Using this implies acceptance of LetsEncrypt's terms of service (or the
+    # selected CA).
+    autocerts:
+      # Hosts to get certificates for.
+      hosts: ["mysite.com", "www.mysite.com"]
+
+      # Where to cache the certificates.
+      # Default: $HOME/.cache/golang-autocert.
+      #cachedir: "/var/cache/gofer/autocerts"
+
+      # Contact email address. The CA can use this to notify about problems.
+      # Optional.
+      #email: "me@myhost.com"
+
+      # ACME directory URL to use.
+      # Default: LetsEncrypt's.
+      #acmeurl: "https://acme-v02.api.letsencrypt.org/directory"
+
     # Location of the certificates, for TLS.
-    certs: "/etc/letsencrypt/live/"
+    # Use this instead of `autocerts` if you get the certificates externally.
+    # If you set this, `autocerts` is ignored.
+    #certs: "/etc/letsencrypt/live/"
 
     # The rest of the fields are the same as for http above.
     routes:

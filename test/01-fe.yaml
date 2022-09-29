@@ -38,6 +38,15 @@ https:
     reqlog:
       "/": "requests"
 
+  ":8443":
+    autocerts:
+      hosts: ["miau.com"]
+      acmeurl: "http://localhost:8460/directory"
+      cachedir: ".autocerts-cache"
+    routes: *routes
+    reqlog:
+      "/": "requests"
+
 
 # Raw proxy to the same backend.
 raw:

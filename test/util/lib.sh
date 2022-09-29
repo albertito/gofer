@@ -51,6 +51,14 @@ function gofer_bg() {
 	PID=$!
 }
 
+function acmesrv() {
+	# Remove the cache before launching the ACME server, otherwise clients
+	# won't reach out to it.
+	rm -rf .autocerts-cache/
+	go run ${UTILDIR}/acmesrv/acmesrv.go \
+		-addr=localhost:8460 > .acmesrv.log
+}
+
 # Wait until there's something listening on the given port.
 function wait_until_ready() {
 	PORT=$1
@@ -77,7 +85,7 @@ function exp() {
 
 	${UTILDIR}/exp/exp "$@" \
 		$VF \
-		-cacert=".certs/localhost/fullchain.pem"
+		-cacert="${CACERT:-.certs/localhost/fullchain.pem}"
 }
 
 function snoop() {

@@ -133,16 +133,16 @@ func HTTP(addr string, conf config.HTTP) {
 	if err != nil {
 		log.Fatalf("%s error listening: %v", addr, err)
 	}
-	log.Infof("%s http proxy starting on %q", addr, lis.Addr())
+	log.Infof("%s http starting on %q", addr, lis.Addr())
 	err = srv.Serve(lis)
-	log.Fatalf("%s http proxy exited: %v", addr, err)
+	log.Fatalf("%s http exited: %v", addr, err)
 }
 
 func HTTPS(addr string, conf config.HTTPS) {
 	var err error
 	srv := httpServer(addr, conf.HTTP)
 
-	srv.TLSConfig, err = util.LoadCerts(conf.Certs)
+	srv.TLSConfig, err = util.LoadCertsForHTTPS(conf)
 	if err != nil {
 		log.Fatalf("%s error loading certs: %v", addr, err)
 	}
@@ -152,15 +152,11 @@ func HTTPS(addr string, conf config.HTTPS) {
 		log.Fatalf("%s error listening: %v", addr, err)
 	}
 
-	// We need to set the NextProtos manually before creating the TLS
-	// listener, the library cannot help us with this.
-	srv.TLSConfig.NextProtos = append(srv.TLSConfig.NextProtos,
-		"h2", "http/1.1")
 	lis := tls.NewListener(rawLis, srv.TLSConfig)
 
-	log.Infof("%s https proxy starting on %q", addr, lis.Addr())
+	log.Infof("%s https starting on %q", addr, lis.Addr())
 	err = srv.Serve(lis)
-	log.Fatalf("%s https proxy exited: %v", addr, err)
+	log.Fatalf("%s https exited: %v", addr, err)
 }
 
 // joinPath joins to HTTP paths. We can't use path.Join because it strips the

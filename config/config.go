@@ -32,8 +32,16 @@ type HTTP struct {
 }
 
 type HTTPS struct {
-	HTTP  `yaml:",inline"`
-	Certs string `yaml:",omitempty"`
+	HTTP      `yaml:",inline"`
+	Certs     string    `yaml:",omitempty"`
+	AutoCerts AutoCerts `yaml:"autocerts,omitempty"`
+}
+
+type AutoCerts struct {
+	Hosts    []string `yaml:",omitempty"`
+	CacheDir string   `yaml:",omitempty"`
+	Email    string   `yaml:",omitempty"`
+	AcmeURL  string   `yaml:",omitempty"`
 }
 
 type Route struct {
@@ -87,10 +95,10 @@ func (c Config) Check() []error {
 	for addr, h := range c.HTTPS {
 		errs = append(errs, h.Check(c, addr)...)
 
-		// Certs must be set for HTTPS.
-		if h.Certs == "" {
+		// For HTTPS, either Certs or AutoCerts must be set.
+		if h.Certs == "" && len(h.AutoCerts.Hosts) == 0 {
 			errs = append(errs,
-				fmt.Errorf("%q: certs must be set", addr))
+				fmt.Errorf("%q: certs or autocerts must be set", addr))
 		}
 	}
 
