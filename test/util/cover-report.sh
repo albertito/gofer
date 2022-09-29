@@ -12,8 +12,9 @@ echo "## Coverage"
 
 # Merge all coverage output into a single file.
 # Ignore protocol buffer-generated files, as they are not relevant.
-go run "${UTILDIR}/gocovcat.go" "${COVER_DIR}"/*.out \
-> "${COVER_DIR}/all.out"
+go run "${UTILDIR}/gocovcat/gocovcat.go" "${COVER_DIR}"/*.out \
+	| grep -v "blitiri.com.ar/go/gofer/test/util/" \
+	> "${COVER_DIR}/all.out"
 
 # Generate reports based on the merged output.
 go tool cover -func="$COVER_DIR/all.out" | sort -k 3 -n > "$COVER_DIR/func.txt"

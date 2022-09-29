@@ -1,6 +1,3 @@
-//go:build ignore
-// +build ignore
-
 // Fetch an URL, and check if the response matches what we expect.
 package main
 
@@ -10,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"regexp"
@@ -42,12 +40,14 @@ func main() {
 			"expect a header matching these contents (regexp match)")
 		caCert = flag.String("cacert", "",
 			"file to read CA cert from")
+		forceLocalhost = flag.Bool("forcelocalhost", false,
+			"force connection to go to localhost")
 	)
 	flag.Parse()
 
 	client := &http.Client{
 		CheckRedirect: noRedirect,
-		Transport:     mkTransport(*caCert),
+		Transport:     mkTransport(*caCert, *forceLocalhost),
 	}
 
 	resp, err := client.Get(url)
@@ -143,7 +143,7 @@ func noRedirect(req *http.Request, via []*http.Request) error {
 	return http.ErrUseLastResponse
 }
 
-func mkTransport(caCert string) *http.Transport {
+func mkTransport(caCert string, forceLocalhost bool) *http.Transport {
 	if caCert == "" {
 		return nil
 	}
@@ -158,11 +158,20 @@ func mkTransport(caCert string) *http.Transport {
 		fatalf("error adding certs to root")
 	}
 
-	return &http.Transport{
+	t := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			RootCAs: rootCAs,
 		},
 	}
+
+	if forceLocalhost {
+		t.Dial = func(network, addr string) (net.Conn, error) {
+			_, port, _ := net.SplitHostPort(addr)
+			return net.Dial(network, "localhost:"+port)
+		}
+	}
+
+	return t
 }
 
 func fatalf(s string, a ...interface{}) {

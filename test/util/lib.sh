@@ -25,7 +25,7 @@ function build() {
 	else
 		( cd ..; make )
 	fi
-	( cd util; go build exp.go )
+	( cd util/exp; go build )
 }
 
 function set_cover() {
@@ -64,7 +64,7 @@ function generate_certs() {
 	mkdir -p .certs/localhost
 	(
 		cd .certs/localhost
-		go run ${UTILDIR}/generate_cert.go \
+		go run ${UTILDIR}/generate_cert/generate_cert.go \
 			-ca -validfor=1h --host=localhost
 	)
 }
@@ -74,7 +74,8 @@ function exp() {
 		VF="-v"
 	fi
 	echo "  $@"
-	${UTILDIR}/exp "$@" \
+
+	${UTILDIR}/exp/exp "$@" \
 		$VF \
 		-cacert=".certs/localhost/fullchain.pem"
 }

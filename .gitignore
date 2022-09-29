@@ -9,7 +9,7 @@
 
 # The binaries.
 /gofer
-/test/util/exp
+/test/util/exp/exp
 
 # Configuration and certificates, to prevent accidents.
 *.yaml
