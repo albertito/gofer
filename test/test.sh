@@ -218,6 +218,9 @@ exp https://localhost:8442/dar/ -bodyre '<a href="%C3%B1aca">ñaca</a>'
 # misconfiguration.
 exp http://localhost:8450/file/second -body "tracañaca\n"
 
+# Debug handler.
+exp "http://127.0.0.1:8459/" -bodyre "gofer @"
+
 # Check that the debug / handler only serves /.
 exp "http://127.0.0.1:8459/notexists" -status 404
 
