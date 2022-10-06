@@ -97,7 +97,6 @@ func New(path string, nbuf int, format string) (*Log, error) {
 	case "<stderr>":
 		h.f = os.Stderr
 	default:
-		// TODO: stdout/stderr (and their reopen).
 		h.f, err = os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 		if err != nil {
 			return nil, err
