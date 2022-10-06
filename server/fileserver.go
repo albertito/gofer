@@ -50,14 +50,14 @@ func (fsrv *fileServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// Open and stat the path.
 	f, err := fsrv.root.Open(cleanPath)
 	if err != nil {
-		toHTTPErrror(w, err)
+		toHTTPError(w, err)
 		return
 	}
 	defer f.Close()
 
 	fi, err := f.Stat()
 	if err != nil {
-		toHTTPErrror(w, err)
+		toHTTPError(w, err)
 		return
 	}
 
@@ -108,7 +108,7 @@ func localRedirect(w http.ResponseWriter, req *http.Request, dst string) {
 	w.WriteHeader(http.StatusMovedPermanently)
 }
 
-func toHTTPErrror(w http.ResponseWriter, err error) {
+func toHTTPError(w http.ResponseWriter, err error) {
 	if os.IsNotExist(err) {
 		http.Error(w, "404 Not found", http.StatusNotFound)
 		return
