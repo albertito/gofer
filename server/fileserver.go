@@ -27,15 +27,6 @@ type fileServer struct {
 }
 
 func (fsrv *fileServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	// Ensure the URL path begins with a /.
-	{
-		upath := req.URL.Path
-		if !strings.HasPrefix(upath, "/") {
-			upath = "/" + upath
-			req.URL.Path = upath
-		}
-	}
-
 	// Redirect x/index.html to x/
 	const indexhtml = "/index.html"
 	if strings.HasSuffix(req.URL.Path, indexhtml) {
@@ -43,8 +34,11 @@ func (fsrv *fileServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Clean the path up. Removes the .., and it will end in a slash only if
-	// it is the root.
+	// Clean the path up. Add initial / if missing, removes the .., and it
+	// will end in a slash only if it is the root.
+	if !strings.HasPrefix(req.URL.Path, "/") {
+		req.URL.Path = "/" + req.URL.Path
+	}
 	cleanPath := path.Clean(req.URL.Path)
 
 	// Open and stat the path.
