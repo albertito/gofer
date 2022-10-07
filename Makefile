@@ -25,7 +25,7 @@ test: vet
 	setsid -w ./test/test.sh
 
 cover:
-	rm -r .cover/
+	rm -rf .cover/
 	mkdir .cover/
 	go test -tags coverage \
 		-covermode=count \

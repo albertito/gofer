@@ -7,6 +7,9 @@ proxy.
 
 ## Status
 
+[![github tests](https://github.com/albertito/gofer/actions/workflows/tests.yaml/badge.svg)](https://github.com/albertito/gofer/actions)
+[![coverage](https://coveralls.io/repos/github/albertito/gofer/badge.svg?branch=next)](https://coveralls.io/github/albertito/gofer?branch=next)
+
 Gofer is under active development, and breaking changes are expected.
 It is fully functional and being used to serve some small websites.
 

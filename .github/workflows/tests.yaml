@@ -1,0 +1,47 @@
+name: "tests"
+
+on:
+  push:
+    branches: [ "master", "next" ]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ "master", "next" ]
+  schedule:
+    - cron: '29 21 * * 6'
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ">=1.19"
+      - name: install cue
+        run: go install cuelang.org/go/cmd/cue@latest
+      - name: install goveralls
+        run: go install github.com/mattn/goveralls@latest
+
+      - name: make test
+        run: make test
+        timeout-minutes: 2
+
+      - name: make cover
+        run: make cover
+        timeout-minutes: 2
+      - name: upload coverage
+        run: goveralls -coverprofile=.cover/all.out -repotoken=${{ secrets.COVERALLS_TOKEN }}
+
+      # Upload the contents of test/ if there are failures, for
+      # troubleshooting. Note we need to tar them first because github has
+      # absurd limitations on file names.
+      - name: tar artifacts
+        if: failure()
+        run: tar -cvf test-dir.tar test/
+      - uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: test-artifacts
+          path: test-dir.tar
+          retention-days: 5
