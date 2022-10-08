@@ -16,9 +16,9 @@ gofer:
 		-X blitiri.com.ar/go/gofer/debug.SourceDateTs=${SOURCE_DATE_EPOCH} \
 		" ${GOFLAGS}
 
-vet: etc/gofer.yaml test/01-be.yaml test/01-fe.yaml
+vet: config/gofer.yaml test/01-be.yaml test/01-fe.yaml
 	go vet ./...
-	cue vet etc/gofer.schema.cue $^
+	cue vet config/gofer.schema.cue $^
 
 test: vet
 	go test ./...

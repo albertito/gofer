@@ -12,7 +12,7 @@ import (
 )
 
 func TestDumpConfig(t *testing.T) {
-	conf, err := config.Load("etc/gofer.yaml")
+	conf, err := config.Load("config/gofer.yaml")
 	if err != nil {
 		t.Fatalf("error loading config example: %v", err)
 	}
