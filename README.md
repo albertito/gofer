@@ -28,6 +28,9 @@ go install blitiri.com.ar/go/gofer@latest
 See the [reference config](config/gofer.yaml) for details on how to configure
 gofer, and what features are available.
 
+There are also [practical configuration examples](doc/examples.md) that cover
+the most common use cases.
+
 
 ## Contact
 

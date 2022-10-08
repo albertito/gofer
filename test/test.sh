@@ -235,6 +235,8 @@ if ! waitgrep -q ":8447 = 500" .01-fe.requests.log; then
 	exit 1
 fi
 
+echo "### Checking examples from doc/examples.md"
+./util/check-examples.sh
 
 echo "## Success"
 snoop
