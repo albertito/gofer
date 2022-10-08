@@ -2,7 +2,7 @@
 # gofer
 
 [gofer](https://blitiri.com.ar/git/r/gofer) is a small web server and reverse
-proxy.
+proxy, written in Go.
 
 
 ## Status
@@ -16,14 +16,23 @@ It is fully functional and being used to serve some small websites.
 
 ## Install
 
-gofer is written in Go.
+To install from source, you'll need the [Go](https://golang.org/) compiler.
 
 ```sh
-go install blitiri.com.ar/go/gofer@latest
+# Clone the repository.
+git clone https://blitiri.com.ar/repos/gofer
+
+# Build the binary and install basic config files.
+cd gofer; sudo make install
+
+# Start the server.
+sudo systemctl start gofer
 ```
 
 
 ## Configure
+
+Configuration lives in `/etc/gofer.yaml` by default.
 
 See the [reference config](config/gofer.yaml) for details on how to configure
 gofer, and what features are available.

@@ -1,0 +1,29 @@
+# gofer configuration file
+
+control_addr: "127.0.0.1:8081"
+
+reqlog:
+  "requests.log":
+    file: "/var/log/gofer/requests.log"
+    bufsize: 16
+
+http:
+  ":80":
+    reqlog:
+      "/": "requests.log"
+    routes:
+      "/":
+        dir: "/srv/www/"
+
+
+# Uncomment this section to enable HTTPS.
+# Make sure to set the autocert hosts to the appropriate values.
+#https:
+#  ":443":
+#    autocerts:
+#      hosts: ["example.org", "www.example.org"]
+#    reqlog:
+#      "/": "requests.log"
+#    routes:
+#      "/":
+#        dir: "/srv/www/"
