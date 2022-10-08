@@ -1,5 +1,0 @@
-[Socket]
-ListenStream=443
-FileDescriptorName=https
-Service=gofer.service
-

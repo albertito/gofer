@@ -1,6 +1,5 @@
 [Unit]
-Description=gofer proxy
-Requires=gofer-http.socket gofer-https.socket
+Description=gofer web server and reverse proxy
 
 [Service]
 ExecStart=/usr/local/bin/gofer -configfile=/etc/gofer.yaml
@@ -10,6 +9,20 @@ Restart=always
 
 User=gofer
 Group=gofer
+DynamicUser=true
+
+# Allow gofer to write in /var, since it is a common destination for logs.
+ReadWritePaths=/var
+
+# Cache directory, used by autocerts.
+CacheDirectory=gofer
+
+# Logs directory, for convenience.
+# To use this, configure reqlogs to be inside /var/log/gofer/.
+LogsDirectory=gofer
+
+# Let gofer listen on ports < 1024.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 
 # Simple security measures just in case.
 ProtectSystem=full

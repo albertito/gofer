@@ -29,7 +29,7 @@ http:
   # systemd socket passing is supported, use "&name" to indicate that you've
   # set up a systemd socket unit with "FileDescriptorName=name".
   # Examples: ":80", "127.0.0.1:8080", "&http".
-  "&http":
+  ":80":
     # Routes indicate how to handle each request based on its path.
     # The path have the semantics of http.ServeMux.
     routes:
@@ -85,7 +85,7 @@ http:
 
 # HTTPS servers.
 https:
-  "&https":
+  ":443":
     # Automatically get TLS certificates.
     # Using this implies acceptance of LetsEncrypt's terms of service (or the
     # selected CA).
@@ -113,9 +113,11 @@ https:
     # The rest of the fields are the same as for http above.
     routes:
       "/":
-        proxy: "http://localhost:8080/"
+        dir: "/srv/www/"
       "/local/":
-        proxy: "http://localhost:99/"
+        proxy: "http://localhost:8099/"
+      "www.mysite.com/":
+        redirect: "https://mysite.com/"
 
 
 # Raw socket proxying.
