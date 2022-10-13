@@ -127,8 +127,6 @@ var htmlIndex = template.Must(
   <ul>
     <li><a href="/debug/config">configuration</a>
     <li><a href="/debug/traces">traces</a>
-    <li><a href="/debug/vars">exported variables</a>
-         <small><a href="https://golang.org/pkg/expvar/">(ref)</a></small>
     <li><a href="/debug/pprof">pprof</a>
         <small><a href="https://golang.org/pkg/net/http/pprof/">
           (ref)</a></small>
