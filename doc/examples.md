@@ -41,7 +41,7 @@ http:
 ## HTTPS server with autocerts and HSTS
 
 Static HTTPS server, with automatic SSL certificates (obtained via
-[Let's Encrypt](https://letsencrypt.org), and enabling
+[Let's Encrypt](https://letsencrypt.org)), and enabling
 [HSTS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security).
 
 ```yaml
