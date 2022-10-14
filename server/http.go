@@ -22,7 +22,7 @@ import (
 	"blitiri.com.ar/go/systemd"
 )
 
-func httpServer(addr string, conf config.HTTP) *http.Server {
+func httpServer(addr string, conf config.HTTP) (*http.Server, error) {
 	tr := trace.New("httpserver", addr)
 	tr.SetMaxEvents(1000)
 
@@ -67,7 +67,7 @@ func httpServer(addr string, conf config.HTTP) *http.Server {
 		for path, dbPath := range conf.Auth {
 			users, err := LoadAuthFile(dbPath)
 			if err != nil {
-				log.Fatalf(
+				return nil, log.Errorf(
 					"failed to load auth file %q: %v", dbPath, err)
 			}
 			authMux.Handle(path,
@@ -109,7 +109,7 @@ func httpServer(addr string, conf config.HTTP) *http.Server {
 		for path, logName := range conf.ReqLog {
 			l := reqlog.FromName(logName)
 			if l == nil {
-				log.Fatalf("unknown reqlog name %q", logName)
+				return nil, log.Errorf("unknown reqlog name %q", logName)
 			}
 			logMux.Handle(path, WithReqLog(srv.Handler, l))
 			log.Infof("%s reqlog %q to %q", srv.Addr, path, logName)
@@ -124,39 +124,44 @@ func httpServer(addr string, conf config.HTTP) *http.Server {
 	// Tracing for all entries.
 	srv.Handler = WithTrace("http@"+srv.Addr, srv.Handler)
 
-	return srv
+	return srv, nil
 }
 
-func HTTP(addr string, conf config.HTTP) {
-	srv := httpServer(addr, conf)
+func HTTP(addr string, conf config.HTTP) error {
+	srv, err := httpServer(addr, conf)
+	if err != nil {
+		return err
+	}
 	lis, err := systemd.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("%s error listening: %v", addr, err)
+		return log.Errorf("%s error listening: %v", addr, err)
 	}
 	log.Infof("%s http starting on %q", addr, lis.Addr())
 	err = srv.Serve(lis)
-	log.Fatalf("%s http exited: %v", addr, err)
+	return log.Errorf("%s http exited: %v", addr, err)
 }
 
-func HTTPS(addr string, conf config.HTTPS) {
-	var err error
-	srv := httpServer(addr, conf.HTTP)
+func HTTPS(addr string, conf config.HTTPS) error {
+	srv, err := httpServer(addr, conf.HTTP)
+	if err != nil {
+		return err
+	}
 
 	srv.TLSConfig, err = util.LoadCertsForHTTPS(conf)
 	if err != nil {
-		log.Fatalf("%s error loading certs: %v", addr, err)
+		return log.Errorf("%s error loading certs: %v", addr, err)
 	}
 
 	rawLis, err := systemd.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("%s error listening: %v", addr, err)
+		return log.Errorf("%s error listening: %v", addr, err)
 	}
 
 	lis := tls.NewListener(rawLis, srv.TLSConfig)
 
 	log.Infof("%s https starting on %q", addr, lis.Addr())
 	err = srv.Serve(lis)
-	log.Fatalf("%s https exited: %v", addr, err)
+	return log.Errorf("%s https exited: %v", addr, err)
 }
 
 // joinPath joins to HTTP paths. We can't use path.Join because it strips the

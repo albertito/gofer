@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
-	"time"
 
 	"blitiri.com.ar/go/gofer/config"
 	"blitiri.com.ar/go/gofer/debug"
@@ -56,28 +56,46 @@ func main() {
 	go signalHandler()
 
 	for name, rlog := range conf.ReqLog {
-		reqlog.FromConfig(name, rlog)
+		err := reqlog.FromConfig(name, rlog)
+		if err != nil {
+			log.Fatalf(err.Error())
+		}
 	}
 
+	servers := []runnerFunc{}
+
 	for addr, https := range conf.HTTPS {
-		go server.HTTPS(addr, https)
+		addr := addr
+		https := https
+		servers = append(servers, func() error {
+			return server.HTTPS(addr, https)
+		})
 	}
 
 	for addr, http := range conf.HTTP {
-		go server.HTTP(addr, http)
+		addr := addr
+		http := http
+		servers = append(servers, func() error {
+			return server.HTTP(addr, http)
+		})
 	}
 
 	for addr, raw := range conf.Raw {
-		go server.Raw(addr, raw)
+		addr := addr
+		raw := raw
+		servers = append(servers, func() error {
+			return server.Raw(addr, raw)
+		})
 	}
 
 	if conf.ControlAddr != "" {
-		go debug.ServeDebugging(conf.ControlAddr, conf)
+		servers = append(servers, func() error {
+			return debug.ServeDebugging(conf.ControlAddr, conf)
+		})
 	}
 
-	for {
-		time.Sleep(1 * time.Hour)
-	}
+	err = runMany(servers...)
+	log.Fatalf(err.Error())
 }
 
 func signalHandler() {
@@ -101,4 +119,28 @@ func signalHandler() {
 			log.Errorf("Unexpected signal %v", sig)
 		}
 	}
+}
+
+type runnerFunc func() error
+
+func runMany(fs ...runnerFunc) error {
+	var err error
+	mu := &sync.Mutex{}
+	cond := sync.NewCond(mu)
+
+	mu.Lock()
+
+	for _, f := range fs {
+		go func(f runnerFunc) {
+			e := f()
+			mu.Lock()
+			err = e
+			cond.Broadcast()
+			mu.Unlock()
+		}(f)
+	}
+
+	cond.Wait()
+
+	return err
 }

@@ -37,7 +37,7 @@ func init() {
 	SourceDateStr = SourceDate.Format("2006-01-02 15:04:05 -0700")
 }
 
-func ServeDebugging(addr string, conf *config.Config) {
+func ServeDebugging(addr string, conf *config.Config) error {
 	hostname, _ := os.Hostname()
 
 	indexData := struct {
@@ -70,7 +70,7 @@ func ServeDebugging(addr string, conf *config.Config) {
 
 	log.Infof("debugging HTTP server listening on %q", addr)
 	err := http.ListenAndServe(addr, nil)
-	log.Errorf("debugging HTTP server died: %v", err)
+	return log.Errorf("debugging HTTP server died: %v", err)
 }
 
 func DumpConfigFunc(conf *config.Config) http.HandlerFunc {

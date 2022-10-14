@@ -150,8 +150,7 @@ var registry = map[string]*Log{}
 func FromConfig(name string, conf config.ReqLog) error {
 	h, err := New(conf.File, conf.BufSize, conf.Format)
 	if err != nil {
-		log.Fatalf("reqlog %q failed to initialize: %v", name, err)
-		return err
+		return fmt.Errorf("reqlog %q failed to initialize: %v", name, err)
 	}
 	registry[name] = h
 	log.Infof("reqlog %q writing to %q", name, conf.File)

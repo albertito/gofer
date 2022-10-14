@@ -14,14 +14,14 @@ import (
 	"blitiri.com.ar/go/systemd"
 )
 
-func Raw(addr string, conf config.Raw) {
+func Raw(addr string, conf config.Raw) error {
 	var err error
 
 	var tlsConfig *tls.Config
 	if conf.Certs != "" {
 		tlsConfig, err = util.LoadCertsFromDir(conf.Certs)
 		if err != nil {
-			log.Fatalf("error loading certs: %v", err)
+			return log.Errorf("error loading certs: %v", err)
 		}
 	}
 
@@ -33,7 +33,7 @@ func Raw(addr string, conf config.Raw) {
 		lis, err = systemd.Listen("tcp", addr)
 	}
 	if err != nil {
-		log.Fatalf("Raw proxy error listening on %q: %v", addr, err)
+		return log.Errorf("Raw proxy error listening on %q: %v", addr, err)
 	}
 
 	rlog := reqlog.FromName(conf.ReqLog)
@@ -42,7 +42,7 @@ func Raw(addr string, conf config.Raw) {
 	for {
 		conn, err := lis.Accept()
 		if err != nil {
-			log.Fatalf("%s error accepting: %v", addr, err)
+			return log.Errorf("%s error accepting: %v", addr, err)
 		}
 
 		go forward(conn, conf.To, conf.ToTLS, rlog)
