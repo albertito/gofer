@@ -38,6 +38,8 @@ func main() {
 			"enable verbose output")
 		hdrRE = flag.String("hdrre", "",
 			"expect a header matching these contents (regexp match)")
+		clientErrorRE = flag.String("clienterrorre", "",
+			"expect a client error matching these contents (regexp match)")
 		caCert = flag.String("cacert", "",
 			"file to read CA cert from")
 		forceLocalhost = flag.Bool("forcelocalhost", false,
@@ -51,7 +53,19 @@ func main() {
 	}
 
 	resp, err := client.Get(url)
-	if err != nil {
+	if *clientErrorRE != "" {
+		if err == nil {
+			errorf("expected client error, got nil")
+		}
+		matched, err := regexp.MatchString(*clientErrorRE, err.Error())
+		if err != nil {
+			errorf("regexp error: %q\n", err)
+		}
+		if !matched {
+			errorf("client error did not match regexp: %q\n", err.Error())
+		}
+		os.Exit(exitCode)
+	} else if err != nil {
 		fatalf("error getting %q: %v\n", url, err)
 	}
 	defer resp.Body.Close()

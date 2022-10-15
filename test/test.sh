@@ -176,6 +176,18 @@ base="https://miau.com:8443"
 exp $base/file -forcelocalhost -body "ñaca\n"
 exp $base/dir/ñaca -forcelocalhost -body "tracañaca\n"
 
+# Request for a domain not in our list, check that the request is denied, and
+# also that we log it properly.
+exp "https://unknown-ac:8443/file" -forcelocalhost \
+	-clienterrorre "tls: internal error"
+if ! waitgrep \
+	-q 'request for "unknown-ac" -> acme/autocert:' \
+	.01-fe.log;
+then
+	echo "autocert error was not logged properly"
+	exit 1
+fi
+
 unset CACERT
 
 
