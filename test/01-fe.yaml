@@ -62,3 +62,9 @@ raw:
   ":8447":
     to: "localhost:0"
     reqlog: "requests"
+
+  # Raw proxy to ourselves over https, to test having a TLS backend.
+  ":8448":
+    to: "localhost:8442"
+    to_tls: true
+    reqlog: "requests"

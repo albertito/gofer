@@ -21,9 +21,10 @@ gofer_bg -v=1 -logfile=.01-be.log -configfile=01-be.yaml
 BE_PID=$PID
 wait_until_ready 8450
 
-# Launch the test instance.
+# Launch the frontend. Tell it to accept the generated cert as a valid root.
 generate_certs
-gofer_bg -v=1 -logfile=.01-fe.log -configfile=01-fe.yaml
+SSL_CERT_FILE=".certs/localhost/fullchain.pem" \
+    gofer_bg -v=1 -logfile=.01-fe.log -configfile=01-fe.yaml
 FE_PID=$PID
 wait_until_ready 8441  # http
 wait_until_ready 8442  # https (cert files)
@@ -240,6 +241,7 @@ exp "http://127.0.0.1:8459/notexists" -status 404
 echo "### Raw proxying"
 exp http://localhost:8445/file -body "ñaca\n"
 exp https://localhost:8446/file -body "ñaca\n"
+exp http://localhost:8448/file -body "ñaca\n"
 
 true < /dev/tcp/localhost/8447
 if ! waitgrep -q ":8447 = 500" .01-fe.requests.log; then
