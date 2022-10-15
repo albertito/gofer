@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"net/url"
 	"regexp"
@@ -238,6 +239,12 @@ func TestRegexp(t *testing.T) {
 	if !strings.Contains(err.Error(), "error parsing regexp:") {
 		t.Errorf("expected error parsing regexp, got %v", err)
 	}
+
+	// Test handling unmarshal error.
+	err = re.UnmarshalYAML(func(interface{}) error { return unmarshalErr })
+	if err != unmarshalErr {
+		t.Errorf("expected unmarshalErr, got %v", err)
+	}
 }
 
 func TestURL(t *testing.T) {
@@ -256,4 +263,19 @@ func TestURL(t *testing.T) {
 	if !strings.Contains(err.Error(), "missing protocol scheme") {
 		t.Errorf("expected error parsing url, got %v", err)
 	}
+
+	// Marshalling an empty URL.
+	var up *URL
+	d, err := up.MarshalYAML()
+	if !(d == "" && err == nil) {
+		t.Errorf("expected \"\"/nil, got %q/%v", d, err)
+	}
+
+	// Test handling unmarshal error.
+	err = up.UnmarshalYAML(func(interface{}) error { return unmarshalErr })
+	if err != unmarshalErr {
+		t.Errorf("expected unmarshalErr, got %v", err)
+	}
 }
+
+var unmarshalErr = fmt.Errorf("error unmarshalling for testing")
