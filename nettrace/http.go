@@ -30,10 +30,13 @@ func init() {
 		}).ParseFS(templatesFS, "templates/*"))
 }
 
+// RegisterHandler registers a the trace handler in the given ServeMux, on
+// `/debug/traces`.
 func RegisterHandler(mux *http.ServeMux) {
 	mux.HandleFunc("/debug/traces", RenderTraces)
 }
 
+// RenderTraces is an http.Handler that renders the tracing information.
 func RenderTraces(w http.ResponseWriter, req *http.Request) {
 	data := &struct {
 		Buckets   *[]time.Duration

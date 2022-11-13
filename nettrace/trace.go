@@ -1,5 +1,5 @@
-// Package trace implements tracing of requests. Traces are created by
-// trace.New, and can then be viewed over HTTP on /debug/traces.
+// Package nettrace implements tracing of requests. Traces are created by
+// nettrace.New, and can then be viewed over HTTP on /debug/traces.
 package nettrace
 
 import (
@@ -35,7 +35,7 @@ func (id id) Family() string {
 	return sp[0]
 }
 
-// A single trace.
+// Trace represents a single request trace.
 type Trace interface {
 	// NewChild creates a new trace, that is a child of this one.
 	NewChild(family, title string) Trace
@@ -149,6 +149,7 @@ func newTrace(family, title string) *trace {
 	return tr
 }
 
+// New creates a new trace with the given family and title.
 func New(family, title string) Trace {
 	return newTrace(family, title)
 }
@@ -255,9 +256,8 @@ func (tr *trace) Duration() time.Duration {
 
 	if end.IsZero() {
 		return time.Since(start)
-	} else {
-		return end.Sub(start)
 	}
+	return end.Sub(start)
 }
 
 // Events returns a copy of the trace events.
