@@ -4,7 +4,7 @@ import "context"
 
 type ctxKeyT string
 
-const ctxKey ctxKeyT = "blitiri.com.ar/go/srv/nettrace"
+const ctxKey ctxKeyT = "blitiri.com.ar/go/gofer/nettrace"
 
 // NewContext returns a new context with the given trace attached.
 func NewContext(ctx context.Context, tr Trace) context.Context {

@@ -11,7 +11,7 @@ import (
 
 	_ "net/http/pprof"
 
-	"blitiri.com.ar/go/srv/trace"
+	"blitiri.com.ar/go/gofer/nettrace"
 )
 
 func main() {
@@ -26,12 +26,13 @@ func main() {
 	go RandomLongEvent("random-long", "long-three")
 	go RandomBunny("random-bunny", "first 🐇")
 	go RandomNested("random-nested")
+	go RandomLazy("random-lazy")
 
 	http.DefaultServeMux.Handle("/",
 		WithLogging(http.HandlerFunc(HandleRoot)))
 
 	http.DefaultServeMux.Handle("/debug/traces",
-		WithLogging(http.HandlerFunc(trace.RenderTraces)))
+		WithLogging(http.HandlerFunc(nettrace.RenderTraces)))
 
 	fmt.Printf("listening on %s\n", *addr)
 	http.ListenAndServe(*addr, nil)
@@ -39,12 +40,12 @@ func main() {
 
 func RandomEvents(family string) {
 	for i := 0; ; i++ {
-		tr := trace.New(family, fmt.Sprintf("evt-%d", i))
+		tr := nettrace.New(family, fmt.Sprintf("evt-%d", i))
 		randomTrace(family, tr)
 	}
 }
 
-func randomTrace(family string, tr trace.Trace) {
+func randomTrace(family string, tr nettrace.Trace) {
 	tr.Printf("this is a random event")
 	tr.Printf("and it has a random delay")
 	delay := time.Duration(rand.Intn(1000)) * time.Millisecond
@@ -74,7 +75,7 @@ func randomTrace(family string, tr trace.Trace) {
 }
 
 func RandomLongEvent(family, title string) {
-	tr := trace.New(family, title)
+	tr := nettrace.New(family, title)
 	tr.Printf("this is a random long event")
 	for i := 0; ; i++ {
 		delay := time.Duration(rand.Intn(100)) * time.Millisecond
@@ -85,7 +86,7 @@ func RandomLongEvent(family, title string) {
 }
 
 func RandomBunny(family, title string) {
-	tr := trace.New(family, title)
+	tr := nettrace.New(family, title)
 	tr.SetMaxEvents(100)
 	tr.Printf("this is the top 🐇")
 	for i := 0; ; i++ {
@@ -99,7 +100,7 @@ func RandomBunny(family, title string) {
 		}
 
 		if rand.Intn(100) < 40 {
-			n := trace.New(family, fmt.Sprintf("linked-%d", i))
+			n := nettrace.New(family, fmt.Sprintf("linked-%d", i))
 			go randomTrace(family, n)
 			tr.Link(n, "linking with this guy")
 		}
@@ -107,7 +108,7 @@ func RandomBunny(family, title string) {
 	tr.Finish()
 }
 
-func randomNested(family string, depth int, parent trace.Trace) {
+func randomNested(family string, depth int, parent nettrace.Trace) {
 	tr := parent.NewChild(family, fmt.Sprintf("nested-%d", depth))
 	defer tr.Finish()
 
@@ -136,9 +137,18 @@ func randomNested(family string, depth int, parent trace.Trace) {
 
 }
 func RandomNested(family string) {
-	tr := trace.New(family, "nested-0")
+	tr := nettrace.New(family, "nested-0")
 	for i := 0; ; i++ {
 		randomNested(family, 1, tr)
+	}
+}
+
+func RandomLazy(family string) {
+	for i := 0; ; i++ {
+		tr := nettrace.New(family, fmt.Sprintf("evt-%d", i))
+		tr.Printf("I am very lazy and do little work")
+		tr.Finish()
+		time.Sleep(500 * time.Millisecond)
 	}
 }
 
@@ -153,7 +163,7 @@ func HandleRoot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if withError := r.FormValue("error"); withError != "" {
-		tr, _ := trace.FromContext(r.Context())
+		tr, _ := nettrace.FromContext(r.Context())
 		tr.SetError()
 	}
 
@@ -162,11 +172,11 @@ func HandleRoot(w http.ResponseWriter, r *http.Request) {
 
 func WithLogging(parent http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		tr := trace.New("http", r.URL.String())
+		tr := nettrace.New("http", r.URL.String())
 		defer tr.Finish()
 
 		// Associate the trace with this request.
-		r = r.WithContext(trace.NewContext(r.Context(), tr))
+		r = r.WithContext(nettrace.NewContext(r.Context(), tr))
 
 		tr.Printf("%s %s %s %s",
 			r.RemoteAddr, r.Proto, r.Method, r.URL.String())
