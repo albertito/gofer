@@ -22,46 +22,46 @@
 {{range $name, $ftr := .FamTraces}}
 <tr>
   <td class="family">
+    <a href="?fam={{$name}}&b=0&all=true">
     {{if eq $name $.Family}}<u>{{end}}
-	{{$name}}
-	{{if eq $name $.Family}}</u>{{end}}
+    {{$name}}
+    {{if eq $name $.Family}}</u>{{end}}
+    </a>
   </td>
 
   <td class="bucket active">
-  	{{$n := $ftr.LenActive}}
-	{{if and (eq $name $.Family) (eq "active" $.BucketStr)}}<u>{{end}}
+    {{$n := $ftr.LenActive}}
+    {{if and (eq $name $.Family) (eq "active" $.BucketStr)}}<u>{{end}}
 
-	{{if gt $n 0}}<a href="?fam={{$name}}&b=-1&all={{$.AllGT}}">
-		{{$n}} active</a>
-	{{else}}<span class="muted">0 active</span>
-	{{end}}
+    <a href="?fam={{$name}}&b=-1&all={{$.AllGT}}"
+       {{if eq $n 0}}class="muted"{{end}}>
+        {{$n}} active</a>
 
-	{{if and (eq $name $.Family) (eq "active" $.BucketStr)}}</u>{{end}}
+    {{if and (eq $name $.Family) (eq "active" $.BucketStr)}}</u>{{end}}
   </td>
 
   {{range $i, $b := $.Buckets}}
   <td class="bucket">
-  	{{$n := $ftr.LenBucket $i}}
-	{{if and (eq $name $.Family) (eq $b.String $.BucketStr)}}<u>{{end}}
+    {{$n := $ftr.LenBucket $i}}
+    {{if and (eq $name $.Family) (eq $b.String $.BucketStr)}}<u>{{end}}
 
-	{{if gt $n 0}}<a href="?fam={{$name}}&b={{$i}}&all={{$.AllGT}}">
-		&ge;{{$b}}</a>
-	{{else}}<span class="muted">&ge;{{$b}}</span>
-	{{end}}
+    <a href="?fam={{$name}}&b={{$i}}&all={{$.AllGT}}"
+       {{if eq $n 0}}class="muted"{{end}}>
+        &ge;{{$b}}</a>
 
-	{{if and (eq $name $.Family) (eq $b.String $.BucketStr)}}</u>{{end}}
+    {{if and (eq $name $.Family) (eq $b.String $.BucketStr)}}</u>{{end}}
   </td>
   {{end}}
 
   <td class="bucket">
-  	{{$n := $ftr.LenErrors}}
-	{{if and (eq $name $.Family) (eq "errors" $.BucketStr)}}<u>{{end}}
-	
-	{{if gt $n 0}}<a href="?fam={{$name}}&b=-2&all={{$.AllGT}}">errors</a>
-	{{else}}<span class="muted">errors</span>
-	{{end}}
+    {{$n := $ftr.LenErrors}}
+    {{if and (eq $name $.Family) (eq "errors" $.BucketStr)}}<u>{{end}}
 
-	{{if and (eq $name $.Family) (eq "errors" $.BucketStr)}}</u>{{end}}
+    <a href="?fam={{$name}}&b=-2&all={{$.AllGT}}"
+       {{if eq $n 0}}class="muted"{{end}}>
+        errors</a>
+
+    {{if and (eq $name $.Family) (eq "errors" $.BucketStr)}}</u>{{end}}
   </td>
 
   <td class="bucket">

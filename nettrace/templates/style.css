@@ -84,6 +84,10 @@ a:hover {
     color: var(--link-hover);
 }
 
+.family a {
+    color: var(--text-color);
+}
+
 u {
     text-decoration-color: var(--underline-color);
 }
@@ -116,7 +120,7 @@ table.index a {
     text-decoration: none;
 }
 
-span.muted {
+a.muted {
     color: var(--muted-color);
 }
 
