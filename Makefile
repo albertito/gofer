@@ -1,14 +1,10 @@
 
-ifndef VERSION
-    VERSION = `git describe --always --long --dirty`
-endif
-
-# https://wiki.debian.org/ReproducibleBuilds/TimestampsProposal
-ifndef SOURCE_DATE_EPOCH
-    SOURCE_DATE_EPOCH = `git log -1 --format=%ct`
-endif
-
 default: gofer
+
+# Pass version and source date info if available on the $VERSION and
+# $SOURCE_DATE_EPOCH environment variables; we will get them from Go's build
+# info infrastructure otherwise.
+# https://wiki.debian.org/ReproducibleBuilds/TimestampsProposal
 
 gofer:
 	go build -ldflags="\

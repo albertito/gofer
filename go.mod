@@ -1,6 +1,6 @@
 module blitiri.com.ar/go/gofer
 
-go 1.17
+go 1.18
 
 require (
 	blitiri.com.ar/go/log v1.1.0
