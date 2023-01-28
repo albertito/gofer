@@ -1,0 +1,16 @@
+
+# Bad configuration file: reqlog points to a file that cannot be created.
+# This helps check that the error when opening a reqlog is handled early and
+# as expected.
+http:
+  ":8442":
+    routes:
+      "/":
+        file: "testdata/file"
+
+    reqlog:
+      "/": "log"
+
+reqlog:
+  "log":
+    file: "/does/not/exist"

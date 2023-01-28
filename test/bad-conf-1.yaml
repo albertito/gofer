@@ -1,0 +1,4 @@
+
+# Bad configuration file: it is missing routes, and either certs or autocerts.
+https:
+  ":8442":

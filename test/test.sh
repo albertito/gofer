@@ -68,6 +68,28 @@ if ! gofer -configfile=.be-print-conf -configcheck; then
 	exit 1
 fi
 
+if gofer -configfile=does-not-exist; then
+	echo "Expected error on a non-existing config"
+	exit 1
+fi
+
+if gofer -configfile=bad-conf-1.yaml; then
+	echo "bad config 1: expected error exit"
+	exit 1
+fi
+if ! waitgrep -q "invalid configuration" .out.log; then
+	echo "bad config 1: expected 'invalid configuration'"
+	exit 1
+fi
+
+if gofer -configfile=bad-conf-2.yaml; then
+	echo "bad config 2: Expected error exit"
+	exit 1
+fi
+if ! waitgrep -q "reqlog \"log\" failed to initialize:" .out.log; then
+	echo "bad config 2: Expected 'reqlog "log" failed to initialize'"
+	exit 1
+fi
 
 # Common tests, for both servers.
 for base in \
