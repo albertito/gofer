@@ -113,14 +113,8 @@ func ServeDebugging(addr string, conf *config.Config) error {
 
 func DumpConfigFunc(conf *config.Config) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		s, err := conf.ToString()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Write([]byte(s))
+		w.Write([]byte(conf.String()))
 	})
 }
 

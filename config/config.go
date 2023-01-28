@@ -73,16 +73,11 @@ type ReqLog struct {
 }
 
 func (c Config) String() string {
-	s, err := c.ToString()
+	d, err := yaml.Marshal(&c)
 	if err != nil {
 		return fmt.Sprintf("<error: %v>", err)
 	}
-	return s
-}
-
-func (c Config) ToString() (string, error) {
-	d, err := yaml.Marshal(&c)
-	return string(d), err
+	return string(d)
 }
 
 func (c Config) Check() []error {

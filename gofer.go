@@ -41,11 +41,7 @@ func main() {
 		log.Fatalf("invalid configuration")
 	}
 	if *configPrint {
-		s, err := conf.ToString()
-		if err != nil {
-			log.Fatalf("%v", err)
-		}
-		fmt.Print(s)
+		fmt.Print(conf.String())
 		return
 	}
 	if *configCheck {
