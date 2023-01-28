@@ -22,13 +22,13 @@ test: vet
 
 cover:
 	rm -rf .cover/
-	mkdir .cover/
+	mkdir -p .cover/go .cover/sh .cover/all
 	go test -tags coverage \
 		-covermode=count \
-		-coverprofile=".cover/pkg-tests.out"\
-		-coverpkg=./... ./...
-	COVER_DIR=$$PWD/.cover/ setsid -w ./test/test.sh
-	COVER_DIR=$$PWD/.cover/ setsid -w ./test/util/cover-report.sh
+		-coverpkg=./... ./... \
+		-args -test.gocoverdir=$$PWD/.cover/go/
+	GOCOVERDIR=$$PWD/.cover/sh/ setsid -w ./test/test.sh
+	setsid -w ./test/util/cover-report.sh $$PWD/.cover/
 
 install: gofer
 	install -D -b -p gofer /usr/local/bin

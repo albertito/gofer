@@ -54,7 +54,7 @@ fi
 
 # Use gofer to print the parsed config. Strip out the coverage summary output
 # (if present), which unfortunately cannot be disabled.
-../gofer $COVER_ARGS -configfile=01-be.yaml -configprint \
+../gofer -configfile=01-be.yaml -configprint \
 	| grep -v -E '^(PASS|coverage: .* of statements in .*)$' \
 	> .be-print-conf
 if ! diff -q testdata/expected-printed-01-be-config .be-print-conf; then

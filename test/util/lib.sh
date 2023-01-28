@@ -12,15 +12,15 @@ function init() {
 	trap ":" TERM      # Avoid the EXIT handler from killing bash.
 	trap "exit 2" INT  # Ctrl-C, make sure we fail in that case.
 	trap "kill 0" EXIT # Kill children on exit.
+
+	export GOCOVERDIR
 }
 
 function build() {
-	if [ "$COVER_DIR" != "" ]; then
+	if [ "$GOCOVERDIR" != "" ]; then
 		(
 			cd ..
-			go test -covermode=count -coverpkg=./... \
-				-c -tags coveragebin
-			mv gofer.test gofer
+			go build -cover -covermode=count -o gofer .
 		)
 	else
 		( cd ..; make )
@@ -28,26 +28,15 @@ function build() {
 	( cd util/exp; go build )
 }
 
-function set_cover() {
-	# Set the coverage arguments each time, as we don't want the different
-	# runs to override the generated profile.
-	if [ "$COVER_DIR" != "" ]; then
-		COVER_ARGS="-test.run=^TestRunMain$ \
-			-test.coverprofile=$COVER_DIR/it-`date +%s.%N`.out"
-	fi
-}
-
 function gofer() {
-	set_cover
-	../gofer $COVER_ARGS  "$@"  >> .out.log 2>&1
+	../gofer "$@" >> .out.log 2>&1
 }
 
 # Run gofer in the background (sets $PID to its process id).
 function gofer_bg() {
 	# Duplicate gofer() because if we put the function in the background,
 	# the pid will be of bash, not the subprocess.
-	set_cover
-	../gofer $COVER_ARGS  "$@"  >> .out.log 2>&1 &
+	../gofer "$@" >> .out.log 2>&1 &
 	PID=$!
 }
 

@@ -8,21 +8,25 @@ init
 # Run from the repo root.
 cd ../
 
+# Cover dir is given as the only arg.
+COVERDIR="${1}"
+
 echo "## Coverage"
 
-# Merge all coverage output into a single file.
-# Ignore protocol buffer-generated files, as they are not relevant.
-go run "${UTILDIR}/gocovcat/gocovcat.go" "${COVER_DIR}"/*.out \
-	| grep -v "blitiri.com.ar/go/gofer/test/util/" \
-	> "${COVER_DIR}/all.out"
+# Merge the reports.
+go tool covdata merge -i "${COVERDIR}/go,${COVERDIR}/sh" -o "${COVERDIR}/all"
+
+# Export to the old format.
+go tool covdata textfmt -i "${COVERDIR}/all" -o "${COVERDIR}/merged.out"
 
 # Generate reports based on the merged output.
-go tool cover -func="$COVER_DIR/all.out" | sort -k 3 -n > "$COVER_DIR/func.txt"
-go tool cover -html="$COVER_DIR/all.out" -o "$COVER_DIR/coverage.html"
+go tool cover -func="${COVERDIR}/merged.out" | sort -k 3 -n \
+	> "${COVERDIR}/func.txt"
+go tool cover -html="${COVERDIR}/merged.out" -o "${COVERDIR}/coverage.html"
 
-TOTAL=$(cat .cover/func.txt | grep "total:" | awk '{print $3}')
+TOTAL=$(cat ${COVERDIR}/func.txt | grep "total:" | awk '{print $3}')
 echo
 echo "Total:" $TOTAL
 echo
 echo "Coverage report can be found in:"
-echo file://$COVER_DIR/coverage.html
+echo file://${COVERDIR}/coverage.html
