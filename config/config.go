@@ -6,6 +6,9 @@ import (
 	"io/ioutil"
 	"net/url"
 	"regexp"
+	"strconv"
+	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -19,6 +22,8 @@ type Config struct {
 	Raw   map[string]Raw   `yaml:",omitempty"`
 
 	ReqLog map[string]ReqLog `yaml:",omitempty"`
+
+	RateLimit map[string]RateLimit `yaml:",omitempty"`
 }
 
 type HTTP struct {
@@ -29,6 +34,8 @@ type HTTP struct {
 	SetHeader map[string]map[string]string `yaml:",omitempty"`
 
 	ReqLog map[string]string `yaml:",omitempty"`
+
+	RateLimit map[string]string `yaml:",omitempty"`
 }
 
 type HTTPS struct {
@@ -60,16 +67,26 @@ type DirOpts struct {
 }
 
 type Raw struct {
-	Certs  string `yaml:",omitempty"`
-	To     string `yaml:",omitempty"`
-	ToTLS  bool   `yaml:"to_tls,omitempty"`
-	ReqLog string `yaml:",omitempty"`
+	Certs     string `yaml:",omitempty"`
+	To        string `yaml:",omitempty"`
+	ToTLS     bool   `yaml:"to_tls,omitempty"`
+	ReqLog    string `yaml:",omitempty"`
+	RateLimit string `yaml:",omitempty"`
 }
 
 type ReqLog struct {
 	File    string `yaml:",omitempty"`
 	BufSize int    `yaml:",omitempty"`
 	Format  string `yaml:",omitempty"`
+}
+
+type RateLimit struct {
+	Rate Rate `yaml:",omitempty"`
+	Size int  `yaml:",omitempty"`
+
+	Rate64 Rate `yaml:",omitempty"`
+	Rate56 Rate `yaml:",omitempty"`
+	Rate48 Rate `yaml:",omitempty"`
 }
 
 func (c Config) String() string {
@@ -102,7 +119,12 @@ func (c Config) Check() []error {
 			errs = append(errs,
 				fmt.Errorf("%q: unknown reqlog %q", addr, r.ReqLog))
 		}
+		if _, ok := c.RateLimit[r.RateLimit]; r.RateLimit != "" && !ok {
+			errs = append(errs,
+				fmt.Errorf("%q: unknown ratelimit %q", addr, r.RateLimit))
+		}
 	}
+
 	return errs
 }
 
@@ -142,8 +164,25 @@ func (h HTTP) Check(c Config, addr string) []error {
 				fmt.Errorf("%q: %q: unknown reqlog %q", addr, path, name))
 		}
 	}
+	for path, name := range h.RateLimit {
+		if _, ok := c.RateLimit[name]; !ok {
+			errs = append(errs,
+				fmt.Errorf("%q: %q: unknown ratelimit %q", addr, path, name))
+		}
+	}
 
 	return errs
+}
+
+// Count how many true values are in a series of bools.
+func nTrue(bs ...bool) int {
+	n := 0
+	for _, b := range bs {
+		if b {
+			n++
+		}
+	}
+	return n
 }
 
 func Load(filename string) (*Config, error) {
@@ -220,12 +259,44 @@ func (u URL) String() string {
 	return p.String()
 }
 
-func nTrue(bs ...bool) int {
-	n := 0
-	for _, b := range bs {
-		if b {
-			n++
-		}
+// Rate type to simplify rate limits in configuration.
+// Format is "requests/period", e.g. "10/1s".
+type Rate struct {
+	Requests uint64
+	Period   time.Duration
+}
+
+func (r *Rate) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err != nil {
+		return err
 	}
-	return n
+
+	sp := strings.SplitN(s, "/", 2)
+	if len(sp) != 2 {
+		return fmt.Errorf("invalid rate format %q (needs a single '/')", s)
+	}
+	reqS, periodS := strings.TrimSpace(sp[0]), strings.TrimSpace(sp[1])
+
+	req, err := strconv.ParseUint(reqS, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid requests in %q: %v", s, err)
+	}
+
+	period, err := time.ParseDuration(periodS)
+	if err != nil {
+		return fmt.Errorf("invalid period in %q: %v", s, err)
+	}
+	if period == 0 {
+		return fmt.Errorf("period must be >0 in %q", s)
+	}
+
+	r.Requests = req
+	r.Period = period
+
+	return nil
+}
+
+func (r Rate) MarshalYAML() (interface{}, error) {
+	return fmt.Sprintf("%d/%s", r.Requests, r.Period), nil
 }

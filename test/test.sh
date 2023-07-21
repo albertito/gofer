@@ -259,6 +259,8 @@ exp "http://127.0.0.1:8459/" -bodyre "gofer @"
 # Check that the debug / handler only serves /.
 exp "http://127.0.0.1:8459/notexists" -status 404
 
+# Rate-limiting debug handler.
+exp "http://127.0.0.1:8440/debug/ratelimit" -bodyre "Allow: 1 / 1s"
 
 echo "### Raw proxying"
 exp http://localhost:8445/file -body "ñaca\n"
@@ -271,8 +273,47 @@ if ! waitgrep -q ":8447 = 500" .01-fe.requests.log; then
 	exit 1
 fi
 
+
+echo "### Rate limiting (http)"
+# First request must be allowed.
+exp http://localhost:8441/rlme/0 -status 200
+
+# Somewhere in these, we should start to get rejected (likely from the
+# beginning, but there could be timing issues).
+for i in `seq 1 3`; do
+	exp http://localhost:8441/rlme/$i -statuslist 200,429
+done
+
+# By this stage, they should all be rejected.
+for i in `seq 4 6`; do
+	exp http://localhost:8441/rlme/$i -status 429
+done
+
+
+echo "### Rate limiting (raw)"
+# Because these are raw proxies, we don't get nice HTTP status on rejections,
+# so we count errors instead.
+# We give it a rate of 1/1s, and perform 6 requests in quick succession.
+# Expect at least 1 success and 3 errors.
+NSUCCESS=0
+NERR=0
+for i in `seq 1 6`; do
+	if exp http://localhost:8449/file >> .exp-raw-rl.log 2>&1; then
+		NSUCCESS=$(( NSUCCESS + 1 ))
+	else
+		NERR=$(( NERR + 1 ))
+	fi
+done
+if [ $NSUCCESS -lt 1 ] || [ $NERR -lt 3 ]; then
+	echo "expected >=1 successes and >=3 errors, but" \
+		"got $NSUCCESS successes and $NERR errors"
+	exit 1
+fi
+
+
 echo "### Checking examples from doc/examples.md"
 ./util/check-examples.sh
+
 
 echo "## Success"
 snoop

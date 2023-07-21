@@ -15,6 +15,7 @@ import (
 
 	"blitiri.com.ar/go/gofer/config"
 	"blitiri.com.ar/go/gofer/nettrace"
+	"blitiri.com.ar/go/gofer/ratelimit"
 	"blitiri.com.ar/go/log"
 )
 
@@ -95,6 +96,7 @@ func ServeDebugging(addr string, conf *config.Config) error {
 	}
 
 	http.HandleFunc("/debug/config", DumpConfigFunc(conf))
+	http.HandleFunc("/debug/ratelimit", ratelimit.DebugHandler)
 	nettrace.RegisterHandler(http.DefaultServeMux)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
@@ -166,6 +168,7 @@ var htmlIndex = template.Must(
   <ul>
     <li><a href="/debug/config">configuration</a>
     <li><a href="/debug/traces">traces</a>
+    <li><a href="/debug/ratelimit">ratelimit</a>
     <li><a href="/debug/pprof">pprof</a>
         <small><a href="https://golang.org/pkg/net/http/pprof/">
           (ref)</a></small>

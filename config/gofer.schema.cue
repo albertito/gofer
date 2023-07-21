@@ -14,6 +14,16 @@ reqlog?:
 		format?:  string
 	})
 
+ratelimit?:
+	[string]: close({
+		rate:  string
+		size?: number
+
+		rate64?: string
+		rate56?: string
+		rate48?: string
+	})
+
 http?:
 	[string]: close(#http)
 
@@ -57,6 +67,8 @@ https?:
 
 	reqlog?: [string]: string
 
+	ratelimit?: [string]: string
+
 	...
 }
 
@@ -66,4 +78,5 @@ raw?:
 		to:      string
 		to_tls?: bool
 		reqlog?: string
+		ratelimit?: string
 	})

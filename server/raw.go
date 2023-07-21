@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"blitiri.com.ar/go/gofer/config"
+	"blitiri.com.ar/go/gofer/ipratelimit"
+	"blitiri.com.ar/go/gofer/ratelimit"
 	"blitiri.com.ar/go/gofer/reqlog"
 	"blitiri.com.ar/go/gofer/trace"
 	"blitiri.com.ar/go/gofer/util"
@@ -37,6 +39,7 @@ func Raw(addr string, conf config.Raw) error {
 	}
 
 	rlog := reqlog.FromName(conf.ReqLog)
+	lim := ratelimit.FromName(conf.RateLimit)
 
 	log.Infof("%s raw proxy starting on %q", addr, lis.Addr())
 	for {
@@ -45,13 +48,37 @@ func Raw(addr string, conf config.Raw) error {
 			return log.Errorf("%s error accepting: %v", addr, err)
 		}
 
-		go forward(conn, conf.To, conf.ToTLS, rlog)
+		go forward(conn, conf.To, conf.ToTLS, rlog, lim)
 	}
 }
 
-func forward(src net.Conn, dstAddr string, dstTLS bool, rlog *reqlog.Log) {
+func allowed(addr net.Addr, lim *ipratelimit.Limiter) bool {
+	// We only support raw proxying over TCP, so we can assume the address is
+	// a TCP address. If not, fail-open just to be safe.
+	tcpAddr, ok := addr.(*net.TCPAddr)
+	if !ok {
+		ratelimit.Trace(lim).Errorf(
+			"[raw] non-TCP address %q", addr)
+		return true
+	}
+
+	if !lim.Allow(tcpAddr.IP) {
+		ratelimit.Trace(lim).Printf(
+			"[raw] rate limit exceeded for %q", tcpAddr.IP)
+		return false
+	}
+
+	return true
+}
+
+func forward(src net.Conn, dstAddr string, dstTLS bool,
+	rlog *reqlog.Log, lim *ipratelimit.Limiter) {
 	defer src.Close()
 	start := time.Now()
+
+	if lim != nil && !allowed(src.RemoteAddr(), lim) {
+		return
+	}
 
 	tr := trace.New("raw", fmt.Sprintf("%s -> %s", src.LocalAddr(), dstAddr))
 	defer tr.Finish()

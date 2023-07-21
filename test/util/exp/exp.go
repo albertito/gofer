@@ -34,6 +34,8 @@ func main() {
 			"expect a redirect to this URL")
 		status = flag.Int("status", 200,
 			"expect this status code")
+		statusList = flag.String("statuslist", "",
+			"expect this comma-separated list of status codes")
 		verbose = flag.Bool("v", false,
 			"enable verbose output")
 		hdrRE = flag.String("hdrre", "",
@@ -91,7 +93,20 @@ func main() {
 		fmt.Printf("\n")
 	}
 
-	if resp.StatusCode != *status {
+	if *statusList != "" {
+		statuses := strings.Split(*statusList, ",")
+		found := false
+		for _, s := range statuses {
+			si, _ := strconv.Atoi(s)
+			if resp.StatusCode == si {
+				found = true
+				break
+			}
+		}
+		if !found {
+			errorf("status %d not in list: %v\n", resp.StatusCode, statuses)
+		}
+	} else if resp.StatusCode != *status {
 		errorf("status is not %d: %q\n", *status, resp.Status)
 	}
 

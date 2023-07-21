@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"gopkg.in/yaml.v3"
@@ -188,6 +189,29 @@ raw:
 `
 	expectErrs(t, `":1234": unknown reqlog "lalala"`,
 		loadAndCheck(t, contents))
+
+	// ratelimit reference (http).
+	contents = `
+https:
+  ":https":
+    certs: "/dev/null"
+    routes:
+      "/":
+        file: "/dev/null"
+    ratelimit:
+      "/": "lalala"
+`
+	expectErrs(t, `":https": "/": unknown ratelimit "lalala"`,
+		loadAndCheck(t, contents))
+
+	// ratelimit reference (raw).
+	contents = `
+raw:
+  ":1234":
+    ratelimit: "lalala"
+`
+	expectErrs(t, `":1234": unknown ratelimit "lalala"`,
+		loadAndCheck(t, contents))
 }
 
 func loadAndCheck(t *testing.T, contents string) []error {
@@ -245,6 +269,12 @@ func TestRegexp(t *testing.T) {
 	if err != unmarshalErr {
 		t.Errorf("expected unmarshalErr, got %v", err)
 	}
+
+	// Test marshalling.
+	s, err := Regexp{orig: "ab.d"}.MarshalYAML()
+	if !(s == "ab.d" && err == nil) {
+		t.Errorf(`expected "ab.d" / nil, got %q / %v`, s, err)
+	}
 }
 
 func TestURL(t *testing.T) {
@@ -273,6 +303,54 @@ func TestURL(t *testing.T) {
 
 	// Test handling unmarshal error.
 	err = up.UnmarshalYAML(func(interface{}) error { return unmarshalErr })
+	if err != unmarshalErr {
+		t.Errorf("expected unmarshalErr, got %v", err)
+	}
+}
+
+func TestRate(t *testing.T) {
+	r := Rate{}
+	err := yaml.Unmarshal([]byte(`"1000/2s"`), &r)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	expected := Rate{1000, 2 * time.Second}
+	if diff := cmp.Diff(expected, r); diff != "" {
+		t.Errorf("unexpected unmarshalling result (-want +got):\n%s", diff)
+	}
+
+	// Error: missing '/'.
+	err = yaml.Unmarshal([]byte(`"1000"`), &r)
+	if !strings.Contains(err.Error(), "needs a single '/'") {
+		t.Errorf("expected error about missing '/', got %v", err)
+	}
+
+	// Error: invalid requests.
+	err = yaml.Unmarshal([]byte(`"-1234/5s"`), &r)
+	if !strings.Contains(err.Error(), "invalid requests") {
+		t.Errorf("expected error about invalid requests, got %v", err)
+	}
+
+	// Error: invalid period.
+	err = yaml.Unmarshal([]byte(`"1234/5"`), &r)
+	if !strings.Contains(err.Error(), "missing unit in duration") {
+		t.Errorf("expected error about invalid period, got %v", err)
+	}
+
+	// Error: period is 0.
+	err = yaml.Unmarshal([]byte(`"1234/0s"`), &r)
+	if !strings.Contains(err.Error(), "period must be >0") {
+		t.Errorf("expected error about period being 0, got %v", err)
+	}
+
+	// Test marshalling.
+	s, err := Rate{1000, 2 * time.Second}.MarshalYAML()
+	if !(s == "1000/2s" && err == nil) {
+		t.Errorf(`expected "1000/2s" / nil, got %q / %v`, s, err)
+	}
+
+	// Test handling unmarshal error.
+	err = r.UnmarshalYAML(func(interface{}) error { return unmarshalErr })
 	if err != unmarshalErr {
 		t.Errorf("expected unmarshalErr, got %v", err)
 	}

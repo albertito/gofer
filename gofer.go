@@ -10,6 +10,7 @@ import (
 
 	"blitiri.com.ar/go/gofer/config"
 	"blitiri.com.ar/go/gofer/debug"
+	"blitiri.com.ar/go/gofer/ratelimit"
 	"blitiri.com.ar/go/gofer/reqlog"
 	"blitiri.com.ar/go/gofer/server"
 	"blitiri.com.ar/go/log"
@@ -56,6 +57,10 @@ func main() {
 		if err != nil {
 			log.Fatalf(err.Error())
 		}
+	}
+
+	for name, rl := range conf.RateLimit {
+		ratelimit.FromConfig(name, rl)
 	}
 
 	servers := []runnerFunc{}

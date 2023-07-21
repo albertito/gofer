@@ -22,6 +22,33 @@ reqlog:
     #format: "<gofer>"
 
 
+# IP rate limiting.
+ratelimit:
+  # Name of the IP rate limit arena; just an id used to refer to it on the
+  # server entries below.
+  "rl-arena1":
+    # Rate to enforce.
+    # Format is "requests/period". For example, "50/1s" will allow 50
+    # requests every second.
+    rate: "50/1s"
+
+    # How many IPs to hold in memory, to keep the memory usage bounded.
+    # Setting this to 1000 will increase memory usage by ~128 KiB.
+    # Default: 1000.
+    #size: 1000
+
+    # By default, IPv6 addresses get limited at /64, /56 and /48
+    # simultaneously; and the rate for /64 is the one given above, for /56 is
+    # 4x the /64 rate, and /48 is 8x the /64 rate.
+    # This is an imperfect heuristic to account for the fact that IPv6 is
+    # allocated to end users in different block sizes, and it is not possible
+    # to tell them apart.
+    # You can configure custom rates for each one as follows:
+    #rate64: "50/1s"
+    #rate56: "200/500ms"
+    #rate48: "400/250ms"
+
+
 # HTTP servers.
 # Map of address: configuration.
 http:
@@ -76,6 +103,12 @@ http:
     #setheader:
     #  "/":
     #    "My-Header": "my header value"
+
+    # Enable IP rate limiting. The target is a rate limit arena name, which
+    # should match an entry in the top-level ratelimit configuration (see
+    # above).
+    ratelimit:
+     "/": "rl-arena1"
 
     # Enable request logging. The target is a log name, which should match an
     # entry in the top-level reqlog configuration (see above).

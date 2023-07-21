@@ -20,16 +20,30 @@ _routes: &routes
     proxy: "http://localhost:8450/dir/"
   "/gogo/":
     redirect: "https://google.com"
+  "/rlme/":
+    proxy: "http://localhost:8450/cgi/"
+
 
 reqlog:
   "requests":
     file: ".01-fe.requests.log"
+
+ratelimit:
+  "rl":
+    rate: 1/1s
+    rate64: 1/1s
+    rate56: 1/500ms
+    rate48: 1/250ms
+  "raw-rl":
+    rate: 1/1s
 
 http:
   ":8441":
     routes: *routes
     reqlog:
       "/": "requests"
+    ratelimit:
+      "/rlme/": "rl"
 
 https:
   ":8442":
@@ -68,3 +82,8 @@ raw:
     to: "localhost:8442"
     to_tls: true
     reqlog: "requests"
+
+  ":8449":
+    to: "localhost:8450"
+    reqlog: "requests"
+    ratelimit: "raw-rl"

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	golog "log"
+	"net"
 	"net/http"
 	"net/http/cgi"
 	"net/http/httputil"
@@ -15,6 +16,8 @@ import (
 	"time"
 
 	"blitiri.com.ar/go/gofer/config"
+	"blitiri.com.ar/go/gofer/ipratelimit"
+	"blitiri.com.ar/go/gofer/ratelimit"
 	"blitiri.com.ar/go/gofer/reqlog"
 	"blitiri.com.ar/go/gofer/trace"
 	"blitiri.com.ar/go/gofer/util"
@@ -123,6 +126,21 @@ func httpServer(addr string, conf config.HTTP) (*http.Server, error) {
 
 	// Tracing for all entries.
 	srv.Handler = WithTrace("http@"+srv.Addr, srv.Handler)
+
+	// Rate limiting goes outside of tracing, to avoid polluting per-protocol
+	// traces with rate-limited events (we trace those separately).
+	if len(conf.RateLimit) > 0 {
+		rlMux := http.NewServeMux()
+		for path, rlName := range conf.RateLimit {
+			l := ratelimit.FromName(rlName)
+			rlMux.Handle(path, WithRateLimit(srv.Handler, l))
+			log.Infof("%s ratelimit %q to %q", srv.Addr, path, rlName)
+		}
+		if _, ok := conf.RateLimit["/"]; !ok {
+			rlMux.Handle("/", srv.Handler)
+		}
+		srv.Handler = rlMux
+	}
 
 	return srv, nil
 }
@@ -489,5 +507,35 @@ func reqLog(r *http.Request, status int, length int64, latency time.Duration) {
 		Status:  status,
 		Length:  length,
 		Latency: latency,
+	})
+}
+
+func WithRateLimit(parent http.Handler, rl *ipratelimit.Limiter) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var ip net.IP
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			ratelimit.Trace(rl).Errorf(
+				"[http] failed to split remote address %q: %v",
+				r.RemoteAddr, err)
+			goto allow
+		}
+
+		ip = net.ParseIP(host)
+		if ip == nil {
+			ratelimit.Trace(rl).Errorf(
+				"[http] failed to parse IP address: %q", r.RemoteAddr)
+			goto allow
+		}
+
+		if !rl.Allow(ip) {
+			ratelimit.Trace(rl).Printf(
+				"[http] rate limit exceeded for %q", ip)
+			http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
+			return
+		}
+
+	allow:
+		parent.ServeHTTP(w, r)
 	})
 }
