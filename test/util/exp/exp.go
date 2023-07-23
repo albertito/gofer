@@ -56,10 +56,11 @@ func main() {
 	if *clientErrorRE != "" {
 		if err == nil {
 			errorf("expected client error, got nil")
+			os.Exit(exitCode)
 		}
-		matched, err := regexp.MatchString(*clientErrorRE, err.Error())
-		if err != nil {
-			errorf("regexp error: %q\n", err)
+		matched, reErr := regexp.MatchString(*clientErrorRE, err.Error())
+		if reErr != nil {
+			errorf("regexp error: %q\n", reErr)
 		}
 		if !matched {
 			errorf("client error did not match regexp: %q\n", err.Error())
