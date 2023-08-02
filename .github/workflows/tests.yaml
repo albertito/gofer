@@ -30,8 +30,14 @@ jobs:
       - name: make cover
         run: make cover
         timeout-minutes: 2
-      - name: upload coverage
+      - name: upload coverage goveralls
         run: goveralls -coverprofile=.cover/merged.out -repotoken=${{ secrets.COVERALLS_TOKEN }}
+      - name: upload coverage codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: .cover/merged.out
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       # Upload the contents of test/ if there are failures, for
       # troubleshooting. Note we need to tar them first because github has
