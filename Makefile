@@ -7,10 +7,7 @@ default: gofer
 # https://wiki.debian.org/ReproducibleBuilds/TimestampsProposal
 
 gofer:
-	go build -ldflags="\
-		-X blitiri.com.ar/go/gofer/debug.Version=${VERSION} \
-		-X blitiri.com.ar/go/gofer/debug.SourceDateTs=${SOURCE_DATE_EPOCH} \
-		" ${GOFLAGS}
+	go build ${GOFLAGS}
 
 vet: config/gofer.yaml etc/gofer.yaml test/01-be.yaml test/01-fe.yaml
 	go vet ./...

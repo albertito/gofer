@@ -7,7 +7,6 @@ import (
 	"os"
 	"runtime"
 	"runtime/debug"
-	"strconv"
 	"time"
 
 	// Remote profiling support.
@@ -19,15 +18,9 @@ import (
 	"blitiri.com.ar/go/log"
 )
 
-// Build information, overridden at build time using
-// -ldflags="-X blitiri.com.ar/go/gofer/debug.Version=blah".
 var (
-	Version      = ""
-	SourceDateTs = ""
-
-	// Derived from SourceDateTs.
-	SourceDate    = time.Time{}
-	SourceDateStr = ""
+	Version    = ""
+	SourceDate = time.Time{}
 )
 
 func init() {
@@ -38,7 +31,6 @@ func init() {
 
 	dirty := false
 	gitRev := ""
-	gitTime := ""
 	for _, s := range bi.Settings {
 		switch s.Key {
 		case "vcs.modified":
@@ -46,33 +38,18 @@ func init() {
 				dirty = true
 			}
 		case "vcs.time":
-			gitTime = s.Value
+			SourceDate, _ = time.Parse(time.RFC3339, s.Value)
 		case "vcs.revision":
 			gitRev = s.Value
 		}
 	}
 
-	if SourceDateTs != "" {
-		sdts, err := strconv.ParseInt(SourceDateTs, 10, 0)
-		if err != nil {
-			panic(err)
-		}
-
-		SourceDate = time.Unix(sdts, 0)
-	} else {
-		SourceDate, _ = time.Parse(time.RFC3339, gitTime)
+	Version = SourceDate.Format("20060102")
+	if gitRev != "" {
+		Version += fmt.Sprintf("-%.9s", gitRev)
 	}
-	SourceDateStr = SourceDate.Format("2006-01-02 15:04:05 -0700")
-
-	if Version == "" {
-		Version = SourceDate.Format("20060102")
-
-		if gitRev != "" {
-			Version += fmt.Sprintf("-%.9s", gitRev)
-		}
-		if dirty {
-			Version += "-dirty"
-		}
+	if dirty {
+		Version += "-dirty"
 	}
 }
 
