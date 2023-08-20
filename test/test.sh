@@ -124,7 +124,13 @@ do
 
 	exp $base/cgi/ -bodyre '"param 1" "param 2"'
 	exp $base/cgi/lala -bodyre '"param 1" "param 2"'
-	exp "$base/cgi/?cucu=melo&a;b" -bodyre 'QUERY_STRING=cucu=melo&a;b\n'
+	exp "$base/cgi/?cucu=melo&a=b" -bodyre 'QUERY_STRING=cucu=melo&a=b\n'
+	exp "$base/cgiwithq/?cucu=melo&a=b" \
+			-bodyre 'QUERY_STRING=x=1&y=2&cucu=melo&a=b\n'
+
+	# The proxy will strip parts of the query when using ";" by default, for
+	# safety reasons.
+	exp "$base/cgi/?cucu=melo&a;b" -bodyre 'QUERY_STRING=cucu=melo\n'
 
 	exp $base/gogo/ -status 307 -redir https://google.com/
 	exp $base/gogo/gaga -status 307 -redir https://google.com/gaga
@@ -184,6 +190,16 @@ do
 done
 
 
+echo "### Forwarding headers"
+exp http://localhost:8441/cgi/ -bodyre 'HTTP_X_FORWARDED_HOST=localhost:8441\n'
+exp http://localhost:8441/cgi/ -bodyre 'HTTP_X_FORWARDED_FOR='
+exp http://localhost:8441/cgi/ -bodyre 'HTTP_HOST=localhost:8450\n'
+exp http://localhost:8441/cgi/ -bodyre 'HTTP_X_FORWARDED_PROTO=http\n'
+exp http://localhost:8441/cgi/ \
+		-bodyre 'HTTP_FORWARDED=for=".+";host="localhost:8441";proto=http\n'
+exp https://localhost:8442/cgi/ -bodyre 'HTTP_X_FORWARDED_PROTO=https\n'
+
+
 echo "### Autocert"
 # Launch the test ACME server.
 acmesrv &
@@ -218,7 +234,7 @@ echo "### Request log"
 function logtest() {
 	exp http://localhost:8441/cgi/logtest
 	for f in .01-be.requests.log .01-fe.requests.log; do
-		EXPECT='localhost:8441 GET /cgi/logtest "" "Go-http-client/1.1" = 200'
+		EXPECT='localhost:84.. GET /cgi/logtest "" "Go-http-client/1.1" = 200'
 		if ! waitgrep -q "$EXPECT" $f; then
 			echo "$f: log entry not found"
 			exit 1
@@ -310,6 +326,8 @@ if [ $NSUCCESS -lt 1 ] || [ $NERR -lt 3 ]; then
 	exit 1
 fi
 
+# Snoop here because the next script will kill the test servers.
+snoop
 
 echo "### Checking examples from doc/examples.md"
 ./util/check-examples.sh

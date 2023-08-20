@@ -304,9 +304,9 @@ func makeStatus(from string, status int) http.Handler {
 
 func makeProxy(path string, to url.URL) http.Handler {
 	proxy := &httputil.ReverseProxy{}
-	proxy.Transport = &proxyTransport{}
+	proxy.ErrorHandler = proxyErrorHandler
 
-	// Director that strips "path" from the request path, so that if we have
+	// Rewrite that strips "path" from the request path, so that if we have
 	// this config:
 	//
 	//   /a/ -> http://dst/b
@@ -320,68 +320,44 @@ func makeProxy(path string, to url.URL) http.Handler {
 	// router, but to us is irrelevant.
 	path = stripDomain(path)
 
-	proxy.Director = func(req *http.Request) {
-		req.URL.Scheme = to.Scheme
-		req.URL.Host = to.Host
-		req.URL.Path = adjustPath(req.URL.Path, path, to.Path)
+	proxy.Rewrite = func(r *httputil.ProxyRequest) {
+		// This sets the Forwarded-For, X-Forwarded-Host, and
+		// X-Forwarded-Proto headers of the outbound request.
+		// The inbound request's X-Forwarded-For header is ignored.
+		r.SetXForwarded()
 
-		// If the user agent is not set, prevent a fall back to the default value.
-		if _, ok := req.Header["User-Agent"]; !ok {
-			req.Header.Set("User-Agent", "")
+		// Set the Forwarded header, which is a standardized version of the
+		// above, and not yet set by SetXForwarded.
+		r.Out.Header.Set("Forwarded",
+			fmt.Sprintf("for=%q;host=%q;proto=%s",
+				r.Out.Header.Get("X-Forwarded-For"),
+				r.Out.Header.Get("X-Forwarded-Host"),
+				r.Out.Header.Get("X-Forwarded-Proto")))
+
+		// Set the outbound URL based on the target.
+		// We use our own path adjustment since the default behaviour doesn't
+		// do what we want (see above).
+		// Note r.SetURL will merge the two query strings appropriately. It
+		// also may strip parts of the query if ';' is used as a separator, as
+		// per golang.org/issue/25192. This is fine for us.
+		r.SetURL(&to)
+		r.Out.URL.Path = adjustPath(r.In.URL.Path, path, to.Path)
+
+		// If the user agent is not set, prevent a fall back to the default
+		// value.
+		if _, ok := r.Out.Header["User-Agent"]; !ok {
+			r.Out.Header.Set("User-Agent", "")
 		}
 
-		// Strip X-Forwarded-For header, since we don't trust what the client
-		// sent, and the reverse proxy will append to.
-		req.Header.Del("X-Forwarded-For")
-
-		// Note we don't do this so we can have routes independent of virtual
-		// hosts. The downside is that if the destination scheme is HTTPS,
-		// this causes issues with the TLS SNI negotiation.
-		//req.Host = to.Host
+		tr, _ := trace.FromContext(r.In.Context())
+		tr.Printf("proxy to: %s %s %s",
+			r.Out.Proto, r.Out.Method, r.Out.URL.String())
 	}
 
-	return newReverseProxy(proxy)
+	return proxy
 }
 
-type proxyTransport struct{}
-
-func (t *proxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	tr, _ := trace.FromContext(req.Context())
-	tr.Printf("proxy to: %s %s %s",
-		req.Proto, req.Method, req.URL.String())
-
-	response, err := http.DefaultTransport.RoundTrip(req)
-	if err == nil {
-		tr.Printf("backend response: %s, %d bytes",
-			response.Status, response.ContentLength)
-		if response.StatusCode >= 400 && response.StatusCode != 404 {
-			tr.SetError()
-		}
-	} else {
-		// errorHandler will be invoked when err != nil, avoid double error
-		// logging.
-	}
-
-	return response, err
-}
-
-type reverseProxy struct {
-	rp *httputil.ReverseProxy
-}
-
-func newReverseProxy(rp *httputil.ReverseProxy) http.Handler {
-	p := &reverseProxy{
-		rp: rp,
-	}
-	rp.ErrorHandler = p.errorHandler
-	return p
-}
-
-func (p *reverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	p.rp.ServeHTTP(rw, req)
-}
-
-func (p *reverseProxy) errorHandler(w http.ResponseWriter, r *http.Request, err error) {
+func proxyErrorHandler(w http.ResponseWriter, r *http.Request, err error) {
 	tr, _ := trace.FromContext(r.Context())
 	tr.Printf("backend error: %v", err)
 
