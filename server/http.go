@@ -55,6 +55,10 @@ func httpServer(addr string, conf config.HTTP) (*http.Server, error) {
 		} else if r.Redirect != nil {
 			log.Infof("%s route %q -> redirect %s", srv.Addr, path, r.Redirect)
 			mux.Handle(path, makeRedirect(path, r.Redirect.URL()))
+		} else if len(r.RedirectRe) > 0 {
+			log.Infof("%s route %q -> redirect_re %q",
+				srv.Addr, path, r.RedirectRe)
+			mux.Handle(path, makeRedirectRe(r.RedirectRe))
 		} else if len(r.CGI) > 0 {
 			log.Infof("%s route %q -> cgi %q", srv.Addr, path, r.CGI)
 			mux.Handle(path, makeCGI(path, r.CGI))
@@ -291,6 +295,33 @@ func makeRedirect(path string, to url.URL) http.Handler {
 		tr.Printf("redirect to %q", target.String())
 
 		http.Redirect(w, r, target.String(), http.StatusTemporaryRedirect)
+	})
+}
+
+func makeRedirectRe(rxs []config.RePair) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tr, _ := trace.FromContext(r.Context())
+
+		for _, rx := range rxs {
+			if !rx.From.MatchString(r.URL.Path) {
+				continue
+			}
+
+			target := rx.From.ReplaceAllString(r.URL.Path, rx.To)
+			status := rx.Status
+			if status == 0 {
+				status = http.StatusTemporaryRedirect
+			}
+
+			tr.Printf("matched %q, %d redirect to %q",
+				rx.From, status, target)
+			http.Redirect(w, r, target, status)
+			return
+		}
+
+		// No regexp matched, return 404.
+		tr.Printf("no regexp matched")
+		http.NotFound(w, r)
 	})
 }
 

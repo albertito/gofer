@@ -76,6 +76,20 @@ http:
         # Redirect to a different URL.
         #redirect: "https://wikipedia.org"
 
+        # Redirect with a regexp-based rewrite.
+        # Regexps are matched in order, and the first match is used.
+        # They are matched against the full path, and the replacement is a URL
+        # template that can refer to submatches as $1, $2, etc.
+        # By default, a 307 (temporary redirect) is used. You can change it by
+        # setting the "status" field.
+        # Anything that does not match will return a 404.
+        #redirect_re:
+        #  - from: "^/foo/(.*)"
+        #    to: "https://bar.com/$1"
+        #  - from: "^/baz/(.*)"
+        #    to: "https://qux.com/$1"
+        #    status: 301
+
         # Execute a CGI.
         #cgi: ["/usr/share/gitweb/gitweb.cgi"]
 

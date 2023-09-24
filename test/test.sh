@@ -141,6 +141,13 @@ do
 
 	exp $base/status/543 -status 543
 
+	# Regexp-based redirects.
+	exp $base/rere/x -status 404
+	exp $base/rere/a/bc/x -status 307 -redir /dst/a/bc/z
+	exp $base/rere/a/b/x -status 404
+	exp $base/rere/1/2/zzz/3/4 -status 308 \
+			-redir http://example.com/dst/z/3/4/z/1/2
+
 	# Test that the FE doesn't forward this - it exists on the BE, but the
 	# route doesn't end in a / so it shouldn't be forwarded.
 	exp $base/file/second -status 404

@@ -52,13 +52,14 @@ type AutoCerts struct {
 }
 
 type Route struct {
-	Dir      string   `yaml:",omitempty"`
-	File     string   `yaml:",omitempty"`
-	Proxy    *URL     `yaml:",omitempty"`
-	Redirect *URL     `yaml:",omitempty"`
-	CGI      []string `yaml:",omitempty"`
-	Status   int      `yaml:",omitempty"`
-	DirOpts  DirOpts  `yaml:",omitempty"`
+	Dir        string   `yaml:",omitempty"`
+	File       string   `yaml:",omitempty"`
+	Proxy      *URL     `yaml:",omitempty"`
+	Redirect   *URL     `yaml:",omitempty"`
+	RedirectRe []RePair `yaml:"redirect_re,omitempty"`
+	CGI        []string `yaml:",omitempty"`
+	Status     int      `yaml:",omitempty"`
+	DirOpts    DirOpts  `yaml:",omitempty"`
 }
 
 type DirOpts struct {
@@ -87,6 +88,12 @@ type RateLimit struct {
 	Rate64 Rate `yaml:",omitempty"`
 	Rate56 Rate `yaml:",omitempty"`
 	Rate48 Rate `yaml:",omitempty"`
+}
+
+type RePair struct {
+	From   *regexp.Regexp
+	To     string
+	Status int
 }
 
 func (c Config) String() string {
@@ -147,6 +154,7 @@ func (h HTTP) Check(c Config, addr string) []error {
 			r.File != "",
 			r.Proxy != nil,
 			r.Redirect != nil,
+			len(r.RedirectRe) > 0,
 			len(r.CGI) > 0,
 			r.Status > 0)
 		if nSet > 1 {
@@ -200,6 +208,32 @@ func LoadString(contents string) (*Config, error) {
 }
 
 // Wrapper to simplify regexp in configuration.
+type Regexp struct {
+	*regexp.Regexp
+}
+
+func (re *Regexp) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err != nil {
+		return err
+	}
+
+	rx, err := regexp.Compile(s)
+	if err != nil {
+		return err
+	}
+
+	re.Regexp = rx
+	return nil
+}
+
+func (re Regexp) MarshalYAML() (interface{}, error) {
+	return re.String(), nil
+}
+
+// Wrapper to simplify regexp in configuration. This is specifically for use
+// on regexp paths, which are always anchored to the beginning and end of the
+// string for ease of use.
 type PathRegexp struct {
 	orig string
 	*regexp.Regexp

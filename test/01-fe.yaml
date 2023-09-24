@@ -24,7 +24,13 @@ _routes: &routes
     redirect: "https://google.com"
   "/rlme/":
     proxy: "http://localhost:8450/cgi/"
-
+  "/rere/":
+    redirect_re:
+      - from: "/rere/a/(..)/x"
+        to: "/dst/a/$1/z"
+      - from: "/rere/(.*)/zzz/(.*)"
+        to: "http://example.com/dst/z/$2/z/$1"
+        status: 308
 
 reqlog:
   "requests":

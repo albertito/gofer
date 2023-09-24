@@ -241,6 +241,41 @@ func expectErrs(t *testing.T, want string, got []error) {
 	}
 }
 
+func TestRegexp(t *testing.T) {
+	re := Regexp{}
+	err := yaml.Unmarshal([]byte(`"ab.d"`), &re)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	expected := Regexp{
+		regexp.MustCompile("ab.d"),
+	}
+	opts := cmp.Comparer(func(x, y Regexp) bool {
+		return x.String() == y.String()
+	})
+	if diff := cmp.Diff(expected, re, opts); diff != "" {
+		t.Errorf("unexpected regexp result (-want +got):\n%s", diff)
+	}
+
+	// Error: invalid regexp.
+	err = yaml.Unmarshal([]byte(`"*"`), &re)
+	if !strings.Contains(err.Error(), "error parsing regexp:") {
+		t.Errorf("expected error parsing regexp, got %v", err)
+	}
+
+	// Test handling unmarshal error.
+	err = re.UnmarshalYAML(func(interface{}) error { return unmarshalErr })
+	if err != unmarshalErr {
+		t.Errorf("expected unmarshalErr, got %v", err)
+	}
+
+	// Test marshalling.
+	s, err := expected.MarshalYAML()
+	if !(s == "ab.d" && err == nil) {
+		t.Errorf(`expected "ab.d" / nil, got %q / %v`, s, err)
+	}
+}
+
 func TestPathRegexp(t *testing.T) {
 	re := PathRegexp{}
 	err := yaml.Unmarshal([]byte(`"ab.d"`), &re)

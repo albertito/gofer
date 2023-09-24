@@ -47,6 +47,7 @@ https?:
 		redirect?: string
 		cgi?: [string, ...string]
 		status?: int
+		redirect_re?: [#redirect_re, ...#redirect_re]
 
 		// TODO: Check that only one of the above is set.
 
@@ -70,6 +71,12 @@ https?:
 	ratelimit?: [string]: string
 
 	...
+}
+
+#redirect_re: {
+	from: string
+	to: string
+	status?: int
 }
 
 raw?:
