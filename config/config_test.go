@@ -241,17 +241,17 @@ func expectErrs(t *testing.T, want string, got []error) {
 	}
 }
 
-func TestRegexp(t *testing.T) {
-	re := Regexp{}
+func TestPathRegexp(t *testing.T) {
+	re := PathRegexp{}
 	err := yaml.Unmarshal([]byte(`"ab.d"`), &re)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	expected := Regexp{
+	expected := PathRegexp{
 		orig:   "ab.d",
 		Regexp: regexp.MustCompile("^(?:ab.d)$"),
 	}
-	opts := cmp.Comparer(func(x, y Regexp) bool {
+	opts := cmp.Comparer(func(x, y PathRegexp) bool {
 		return x.orig == y.orig && x.String() == y.String()
 	})
 	if diff := cmp.Diff(expected, re, opts); diff != "" {
@@ -271,7 +271,7 @@ func TestRegexp(t *testing.T) {
 	}
 
 	// Test marshalling.
-	s, err := Regexp{orig: "ab.d"}.MarshalYAML()
+	s, err := PathRegexp{orig: "ab.d"}.MarshalYAML()
 	if !(s == "ab.d" && err == nil) {
 		t.Errorf(`expected "ab.d" / nil, got %q / %v`, s, err)
 	}

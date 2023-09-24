@@ -63,7 +63,7 @@ type Route struct {
 
 type DirOpts struct {
 	Listing map[string]bool `yaml:",omitempty"`
-	Exclude []Regexp        `yaml:",omitempty"`
+	Exclude []PathRegexp    `yaml:",omitempty"`
 }
 
 type Raw struct {
@@ -200,12 +200,12 @@ func LoadString(contents string) (*Config, error) {
 }
 
 // Wrapper to simplify regexp in configuration.
-type Regexp struct {
+type PathRegexp struct {
 	orig string
 	*regexp.Regexp
 }
 
-func (re *Regexp) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (re *PathRegexp) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var s string
 	if err := unmarshal(&s); err != nil {
 		return err
@@ -221,7 +221,7 @@ func (re *Regexp) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
-func (re Regexp) MarshalYAML() (interface{}, error) {
+func (re PathRegexp) MarshalYAML() (interface{}, error) {
 	return re.orig, nil
 }
 
