@@ -14,7 +14,7 @@ _routes: &routes
     proxy: "http://localhost:8450/cgi/?x=1&y=2"
   "/status/":
     proxy: "http://localhost:8450/status/"
-  "/bad/unreacheable":
+  "/bad/unreachable":
     proxy: "http://localhost:1/"
   "/bad/empty":
     proxy: "http:"

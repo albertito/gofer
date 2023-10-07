@@ -443,6 +443,6 @@ func makeMiniTime(t time.Time) miniTime {
 }
 
 func sinceMiniTime(now time.Time, old miniTime) time.Duration {
-	// time.Duration is an int64 nanosecond count, so we can just substract.
+	// time.Duration is an int64 nanosecond count, so we can just subtract.
 	return time.Duration(now.UnixNano() - int64(old))
 }

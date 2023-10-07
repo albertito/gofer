@@ -136,7 +136,7 @@ do
 	exp $base/gogo/gaga -status 307 -redir https://google.com/gaga
 	exp $base/gogo/a/b/ -status 307 -redir https://google.com/a/b/
 
-	exp $base/bad/unreacheable -status 502
+	exp $base/bad/unreachable -status 502
 	exp $base/bad/empty -status 502
 
 	exp $base/status/543 -status 543
