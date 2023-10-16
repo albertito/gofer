@@ -18,4 +18,10 @@ jobs:
       - id: govulncheck
         uses: golang/govulncheck-action@v1
         with:
+          # Use the latest available Go version, and disable the cache
+          # (because it often interferes with finding it).
+          # This helps reduce false positives when there are security issues
+          # in the Go distribution itself.
+          go-version-input: 'stable'
           check-latest: true
+          cache: false
