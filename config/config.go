@@ -42,6 +42,9 @@ type HTTPS struct {
 	HTTP      `yaml:",inline"`
 	Certs     string    `yaml:",omitempty"`
 	AutoCerts AutoCerts `yaml:"autocerts,omitempty"`
+
+	// Where to write key log files for debugging TLS.
+	InsecureKeyLogFile string `yaml:"insecure_key_log_file,omitempty"`
 }
 
 type AutoCerts struct {

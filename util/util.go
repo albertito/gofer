@@ -13,6 +13,7 @@ import (
 
 	"blitiri.com.ar/go/gofer/config"
 	"blitiri.com.ar/go/gofer/trace"
+	"blitiri.com.ar/go/log"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 )
@@ -32,6 +33,13 @@ func LoadCertsForHTTPS(conf config.HTTPS) (*tls.Config, error) {
 		// for us.
 		tlsConfig.NextProtos = append(tlsConfig.NextProtos,
 			"h2", "http/1.1")
+
+		if conf.InsecureKeyLogFile != "" {
+			log.Infof("INSECURE TLS key log is enabled, writing to %q",
+				conf.InsecureKeyLogFile)
+			tlsConfig.KeyLogWriter, err = os.Create(conf.InsecureKeyLogFile)
+		}
+
 		return tlsConfig, err
 	}
 
@@ -80,7 +88,13 @@ func LoadCertsForHTTPS(conf config.HTTPS) (*tls.Config, error) {
 		return cert, err
 	}
 
-	return tlsConf, nil
+	if conf.InsecureKeyLogFile != "" {
+		log.Infof("INSECURE TLS key log is enabled, writing to %q",
+			conf.InsecureKeyLogFile)
+		tlsConf.KeyLogWriter, err = os.Create(conf.InsecureKeyLogFile)
+	}
+
+	return tlsConf, err
 }
 
 func cachePath(confDir string) string {

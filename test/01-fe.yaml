@@ -59,6 +59,7 @@ https:
     routes: *routes
     reqlog:
       "/": "requests"
+    insecure_key_log_file: ".01-fe.8442.tls-secrets.txt"
 
   ":8443":
     autocerts:
@@ -68,6 +69,7 @@ https:
     routes: *routes
     reqlog:
       "/": "requests"
+    insecure_key_log_file: ".01-fe.8443.tls-secrets.txt"
 
 
 # Raw proxy to the same backend.
