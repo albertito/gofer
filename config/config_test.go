@@ -112,6 +112,20 @@ https:
 	}
 }
 
+func TestExampleConfig(t *testing.T) {
+	// Test that we can load the included example config.
+	c, err := Load("gofer.yaml")
+	if err != nil {
+		t.Fatalf("error loading example config: %v", err)
+	}
+
+	if errs := c.Check(); len(errs) > 0 {
+		t.Errorf("errors in example config: %v", errs)
+	}
+
+	t.Logf("config: %v", c)
+}
+
 func TestCheck(t *testing.T) {
 	// routes must be set.
 	contents := `
