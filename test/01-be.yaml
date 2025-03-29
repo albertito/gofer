@@ -34,6 +34,13 @@ http:
       "/status/543":
         status: 543
 
+      "/slow/10ms":
+        cgi: ["testdata/sleep.sh", "0.01"]
+      "/slow/100ms":
+        cgi: ["testdata/sleep.sh", "0.1"]
+      "/slow/500ms":
+        cgi: ["testdata/sleep.sh", "0.5"]
+
     auth:
       "/authdir/ñaca": "testdata/authdb.yaml"
       "/authdir/withoutindex/": "testdata/authdb.yaml"

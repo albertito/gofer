@@ -36,6 +36,8 @@ type HTTP struct {
 	ReqLog map[string]string `yaml:",omitempty"`
 
 	RateLimit map[string]string `yaml:",omitempty"`
+
+	Timeouts map[string]Timeout `yaml:",omitempty"`
 }
 
 type HTTPS struct {
@@ -52,6 +54,11 @@ type AutoCerts struct {
 	CacheDir string   `yaml:",omitempty"`
 	Email    string   `yaml:",omitempty"`
 	AcmeURL  string   `yaml:",omitempty"`
+}
+
+type Timeout struct {
+	Read  time.Duration `yaml:",omitempty"`
+	Write time.Duration `yaml:",omitempty"`
 }
 
 type Route struct {
@@ -179,6 +186,18 @@ func (h HTTP) Check(c Config, addr string) []error {
 		if _, ok := c.RateLimit[name]; !ok {
 			errs = append(errs,
 				fmt.Errorf("%q: %q: unknown ratelimit %q", addr, path, name))
+		}
+	}
+
+	// Verify timeouts are positive.
+	for path, timeout := range h.Timeouts {
+		if timeout.Read < 0 {
+			errs = append(errs,
+				fmt.Errorf("%q: %q: read timeout must be positive", addr, path))
+		}
+		if timeout.Write < 0 {
+			errs = append(errs,
+				fmt.Errorf("%q: %q: write timeout must be positive", addr, path))
 		}
 	}
 

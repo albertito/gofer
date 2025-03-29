@@ -129,6 +129,16 @@ http:
     reqlog:
       "/": "requests.log"
 
+    # Per-path timeouts. Values are strings representing durations (in Go
+    # format).  Read and write timeouts are supported.
+    timeouts:
+      "/":
+        read: "30s"
+        write: "30s"
+      "/upload/": 
+        read: "5m"
+        write: "60s"
+
 
 # HTTPS servers.
 https:

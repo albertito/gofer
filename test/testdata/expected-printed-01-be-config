@@ -22,6 +22,18 @@ http:
                 file: testdata/file
             /file/second:
                 file: testdata/dir/ñaca
+            /slow/10ms:
+                cgi:
+                    - testdata/sleep.sh
+                    - "0.01"
+            /slow/100ms:
+                cgi:
+                    - testdata/sleep.sh
+                    - "0.1"
+            /slow/500ms:
+                cgi:
+                    - testdata/sleep.sh
+                    - "0.5"
             /status/543:
                 status: 543
         auth:

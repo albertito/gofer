@@ -31,6 +31,13 @@ _routes: &routes
       - from: "/rere/(.*)/zzz/(.*)"
         to: "http://example.com/dst/z/$2/z/$1"
         status: 308
+  "/timeout/":
+    proxy: "http://localhost:8450/slow/"
+
+_timeouts: &timeouts
+  "/timeout/":
+    read: "200ms"
+    write: "200ms"
 
 reqlog:
   "requests":
@@ -52,6 +59,7 @@ http:
       "/": "requests"
     ratelimit:
       "/rlme/": "rl"
+    timeouts: *timeouts
 
 https:
   ":8442":
@@ -59,6 +67,7 @@ https:
     routes: *routes
     reqlog:
       "/": "requests"
+    timeouts: *timeouts
     insecure_key_log_file: ".01-fe.8442.tls-secrets.txt"
 
   ":8443":
@@ -69,6 +78,7 @@ https:
     routes: *routes
     reqlog:
       "/": "requests"
+    timeouts: *timeouts
     insecure_key_log_file: ".01-fe.8443.tls-secrets.txt"
 
 

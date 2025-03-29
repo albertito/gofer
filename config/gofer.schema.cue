@@ -5,6 +5,10 @@
 // Example:
 //   cue vet /etc/gofer.schema.cue /etc/gofer.yaml
 
+import (
+	"time"
+)
+
 control_addr?: string
 
 reqlog?:
@@ -69,6 +73,11 @@ https?:
 	reqlog?: [string]: string
 
 	ratelimit?: [string]: string
+
+	timeouts?: [string]: {
+		read?: time.Duration
+		write?: time.Duration
+	}
 
 	...
 }

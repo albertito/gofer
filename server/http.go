@@ -106,6 +106,21 @@ func httpServer(addr string, conf config.HTTP) (*http.Server, error) {
 		srv.Handler = hdrMux
 	}
 
+	// Custom timeouts.
+	if len(conf.Timeouts) > 0 {
+		timeoutMux := http.NewServeMux()
+		for path, timeout := range conf.Timeouts {
+			timeoutMux.Handle(path, WithTimeout(srv.Handler, timeout))
+			log.Infof("%s timeout %q -> read:%s write:%s",
+				srv.Addr, path, timeout.Read, timeout.Write)
+		}
+
+		if _, ok := conf.Timeouts["/"]; !ok {
+			timeoutMux.Handle("/", srv.Handler)
+		}
+		srv.Handler = timeoutMux
+	}
+
 	// Logging for all entries.
 	// Because this will use the request logs if available, it needs to be
 	// wrapped by it.
@@ -436,6 +451,12 @@ func (w *statusWriter) Flush() {
 	}
 }
 
+// Unwrap is used by ResponseController to get the underlying
+// http.ResponseWriter.
+func (w *statusWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
+}
+
 func SetHeader(parent http.Handler, hdrs map[string]string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tr, _ := trace.FromContext(r.Context())
@@ -543,6 +564,26 @@ func WithRateLimit(parent http.Handler, rl *ipratelimit.Limiter) http.Handler {
 		}
 
 	allow:
+		parent.ServeHTTP(w, r)
+	})
+}
+
+func WithTimeout(parent http.Handler, timeout config.Timeout) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tr, _ := trace.FromContext(r.Context())
+
+		rc := http.NewResponseController(w)
+
+		if timeout.Read > 0 {
+			tr.Printf("read timeout: %v", timeout.Read)
+			rc.SetReadDeadline(time.Now().Add(timeout.Read))
+		}
+
+		if timeout.Write > 0 {
+			tr.Printf("write timeout: %v", timeout.Write)
+			rc.SetWriteDeadline(time.Now().Add(timeout.Write))
+		}
+
 		parent.ServeHTTP(w, r)
 	})
 }

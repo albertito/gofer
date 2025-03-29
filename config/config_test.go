@@ -226,6 +226,22 @@ raw:
 `
 	expectErrs(t, `":1234": unknown ratelimit "lalala"`,
 		loadAndCheck(t, contents))
+
+	// Negative read and write timeouts.
+	contents = `
+http:
+  ":http":
+    routes:
+      "/":
+        file: "/dev/null"
+    timeouts:
+      "/":
+        read: "-1s"
+        write: "-1s"
+`
+	got := loadAndCheck(t, contents)
+	expectErrs(t, `":http": "/": read timeout must be positive`, got)
+	expectErrs(t, `":http": "/": write timeout must be positive`, got)
 }
 
 func loadAndCheck(t *testing.T, contents string) []error {

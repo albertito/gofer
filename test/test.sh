@@ -165,6 +165,15 @@ do
 
 	# Additional headers.
 	exp $base/file -hdrre "X-My-Header: my lovely header"
+
+	# Timeouts.
+	exp $base/timeout/10ms -status 200
+	exp $base/timeout/100ms -status 200
+	# The 500ms request times out, and this appears to the client as
+	# either EOF (over HTTP) or a TLS error (over HTTPS).
+	# This behaviours matches reaching the timeout of http.Server.
+	exp $base/timeout/500ms \
+		-clienterrorre "EOF|local error: tls: bad record MAC"
 done
 
 
