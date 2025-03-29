@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"blitiri.com.ar/go/gofer/config"
+	"blitiri.com.ar/go/gofer/ratelimit"
 	"blitiri.com.ar/go/log"
 )
 
@@ -204,6 +205,75 @@ func TestAdjustPath(t *testing.T) {
 			t.Errorf("adjustPath(%q, %q, %q) = %q, expected %q",
 				c.req, c.from, c.to, got, c.expected)
 		}
+	}
+}
+
+func TestAdjustPathPanic(t *testing.T) {
+	// We expect req to have from as prefix; otherwise, the function should
+	// panic.
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("adjustPath did not panic as expected")
+		}
+	}()
+	adjustPath("/req", "/from", "/to")
+}
+
+func TestRateLimitRequestErrors(t *testing.T) {
+	// WithRateLimit needs to split host and port, and parse the host IP
+	// address. We don't expect either to fail, due to the nature of the
+	// handlers, but we want to make sure we fail-open if they do.
+	// To test this, we set up some artificial requests.
+
+	// First, set up a rate limiter which rejects everything.
+	ratelimit.FromConfig("TestRateLimitRequestErrors", config.RateLimit{
+		Rate: config.Rate{Requests: 0, Period: 1 * time.Second}})
+	rl := ratelimit.FromName("TestRateLimitRequestErrors")
+	if rl == nil {
+		t.Fatalf("rate limiter not found")
+	}
+
+	// Set up a trivial root handler, and then wrap it with the rate limiter.
+	rootHCalled := 0
+	rootH := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rootHCalled++
+		w.WriteHeader(200)
+	})
+
+	h := WithRateLimit(rootH, rl)
+
+	// Test that a well-formed request is rejected.
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "http://localhost:1234/", nil)
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusTooManyRequests {
+		t.Errorf("expected status 429 (too many requests), got %v", w.Code)
+	}
+
+	// Test that a request with a remote address that fails to be split
+	// fails-open and is allowed.
+	r = httptest.NewRequest("GET", "http://[::1]:1234/", nil)
+	r.RemoteAddr = "invalid"
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200 (OK), got %v", w.Code)
+	}
+	if rootHCalled != 1 {
+		t.Errorf("expected root handler to be called 1, got %v", rootHCalled)
+	}
+
+	// Test that a request with a remote address that has a non-IP as host
+	// fails-open and is allowed.
+	r = httptest.NewRequest("GET", "http://[::1]:1234/", nil)
+	r.RemoteAddr = "localhost:1234"
+	w = httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200 (OK), got %v", w.Code)
+	}
+	if rootHCalled != 2 {
+		t.Errorf("expected root handler to be called 2, got %v", rootHCalled)
 	}
 }
 
