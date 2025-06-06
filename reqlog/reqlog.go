@@ -61,7 +61,8 @@ const lighttpdFormat = "{{.H.RemoteAddr}} {{.H.Host}} - [{{.T.Format \"02/Jan/20
 
 // gofer format, this is the default, and can handle both raw and HTTP events.
 const goferFormat = "{{.T.Format \"2006-01-02 15:04:05.000\"}}" +
-	"{{if .H}} {{.H.RemoteAddr}} {{.H.Proto}} {{.H.Host}} {{.H.Method}}" +
+	"{{if .H}} {{.H.RemoteAddr}} {{.H.Proto}}" +
+	" {{if .H.Host}}{{.H.Host}}{{else}}-{{end}} {{.H.Method}}" +
 	" {{.H.URL}} {{.H.Header.Referer|q}} {{index .H.Header \"User-Agent\"|q}}{{end}}" +
 	"{{if .R}} {{.R.RemoteAddr}} raw {{.R.LocalAddr}}{{end}}" +
 	" = {{.Status}} {{.Length}}b {{.Latency.Milliseconds}}ms\n"
