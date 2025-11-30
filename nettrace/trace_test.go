@@ -1,7 +1,9 @@
 package nettrace
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -74,6 +76,23 @@ func TestIsError(t *testing.T) {
 	if tr.(*trace).IsError() != true {
 		tr.Errorf("error not recorded properly")
 	}
+}
+
+func TestErrorFormatting(t *testing.T) {
+	tr := New("TestErrorFormatting", "")
+	defer tr.Finish()
+
+	err := tr.Errorf("this is an error: %w", os.ErrNotExist)
+	if !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("error = %v, want wrapped os.ErrNotExist", err)
+	}
+
+	err = tr.Error(os.ErrNotExist)
+	if err != os.ErrNotExist {
+		t.Errorf("error = %v, want os.ErrNotExist", err)
+	}
+
+	expectEvents(t, tr, 2)
 }
 
 func TestFindViaRef(t *testing.T) {

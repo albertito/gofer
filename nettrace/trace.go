@@ -1,11 +1,11 @@
 // Package nettrace implements tracing of requests. Traces are created by
 // nettrace.New, and can then be viewed over HTTP on /debug/traces.
-package nettrace
+package nettrace // import "blitiri.com.ar/go/gofer/nettrace"
 
 import (
 	"container/ring"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"sort"
 	"strconv"
 	"strings"
@@ -50,8 +50,15 @@ type Trace interface {
 	// SetError marks that the trace was for an error event.
 	SetError()
 
-	// Printf adds a message to the trace.
+	// Print adds a message to the trace.
+	Print(s string)
+
+	// Printf adds a formatted message to the trace.
 	Printf(format string, a ...interface{})
+
+	// Error logs an error to the trace, and returns it unchanged (for
+	// convenience).
+	Error(err error) error
 
 	// Errorf adds a message to the trace, marks it as an error, and returns
 	// an error for it.
@@ -151,6 +158,9 @@ func newTrace(family, title string) *trace {
 
 // New creates a new trace with the given family and title.
 func New(family, title string) Trace {
+	if Disable {
+		return disabledTrace{}
+	}
 	return newTrace(family, title)
 }
 
@@ -220,21 +230,32 @@ func (tr *trace) SetError() {
 	tr.mu.Unlock()
 }
 
-func (tr *trace) Printf(format string, a ...interface{}) {
+func (tr *trace) Print(s string) {
 	evt := &event{
 		When: time.Now(),
 		Type: evtLOG,
-		Msg:  fmt.Sprintf(format, a...),
+		Msg:  s,
 	}
 
 	tr.append(evt)
+
+	if Log != nil {
+		Log(tr.Family, tr.Title, string(tr.ID), evt.Msg, tr.isError)
+	}
+}
+
+func (tr *trace) Printf(format string, a ...interface{}) {
+	tr.Print(fmt.Sprintf(format, a...))
+}
+
+func (tr *trace) Error(err error) error {
+	tr.SetError()
+	tr.Print(err.Error())
+	return err
 }
 
 func (tr *trace) Errorf(format string, a ...interface{}) error {
-	tr.SetError()
-	err := fmt.Errorf(format, a...)
-	tr.Printf(err.Error())
-	return err
+	return tr.Error(fmt.Errorf(format, a...))
 }
 
 func (tr *trace) Finish() {
@@ -301,7 +322,7 @@ func (tr *trace) IsError() bool {
 // We keep this many buckets of finished traces.
 const nBuckets = 8
 
-// Buckets to use. Length must match nBuckets.
+// Buckets to use. Lenght must match nBuckets.
 // "Traces with a latency >= $duration".
 var buckets = []time.Duration{
 	time.Duration(0),

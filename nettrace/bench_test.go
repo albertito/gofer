@@ -55,3 +55,12 @@ func BenchmarkPrintf(b *testing.B) {
 		tr.Printf("this is printf")
 	}
 }
+
+func BenchmarkPrint(b *testing.B) {
+	tr := New("bench", "test")
+	defer tr.Finish()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		tr.Print("this is print")
+	}
+}
