@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -124,7 +123,7 @@ func cachePath(confDir string) string {
 func LoadCertsFromDir(certDir string) (*tls.Config, error) {
 	tlsConfig := &tls.Config{}
 
-	infos, err := ioutil.ReadDir(certDir)
+	infos, err := os.ReadDir(certDir)
 	if err != nil {
 		return nil, fmt.Errorf("ReadDir(%q): %v", certDir, err)
 	}
@@ -156,8 +155,6 @@ func LoadCertsFromDir(certDir string) (*tls.Config, error) {
 	if len(tlsConfig.Certificates) == 0 {
 		return nil, fmt.Errorf("no certificates found in %q", certDir)
 	}
-
-	tlsConfig.BuildNameToCertificate()
 
 	return tlsConfig, nil
 }

@@ -178,7 +178,7 @@ func mkTransport(caCert string, forceLocalhost bool) *http.Transport {
 		return nil
 	}
 
-	certs, err := ioutil.ReadFile(caCert)
+	certs, err := os.ReadFile(caCert)
 	if err != nil {
 		fatalf("error reading CA file %q: %v", caCert, err)
 	}

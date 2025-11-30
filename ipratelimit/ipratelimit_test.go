@@ -353,14 +353,14 @@ func TestDebugString(t *testing.T) {
 	l := NewLimiter(1, time.Second, 3)
 	l.Allow(net.IPv4(1, 1, 1, 1))
 	l.Allow(net.ParseIP("1111:2222:3333:4444:5555:6666:7777:8888"))
-	t.Logf(l.DebugString())
+	t.Log(l.DebugString())
 }
 
 func TestDebugHTML(t *testing.T) {
 	l := NewLimiter(1, time.Second, 3)
 	l.Allow(net.IPv4(1, 1, 1, 1))
 	l.Allow(net.ParseIP("1111:2222:3333:4444:5555:6666:7777:8888"))
-	t.Logf(l.DebugHTML())
+	t.Log(l.DebugHTML())
 }
 
 func BenchmarkDifferentIPv4_256(b *testing.B) {

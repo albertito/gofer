@@ -68,24 +68,18 @@ func main() {
 	servers := []runnerFunc{}
 
 	for addr, https := range conf.HTTPS {
-		addr := addr
-		https := https
 		servers = append(servers, func() error {
 			return server.HTTPS(addr, https)
 		})
 	}
 
 	for addr, http := range conf.HTTP {
-		addr := addr
-		http := http
 		servers = append(servers, func() error {
 			return server.HTTP(addr, http)
 		})
 	}
 
 	for addr, raw := range conf.Raw {
-		addr := addr
-		raw := raw
 		servers = append(servers, func() error {
 			return server.Raw(addr, raw)
 		})

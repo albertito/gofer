@@ -3,8 +3,8 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -216,7 +216,7 @@ func nTrue(bs ...bool) int {
 }
 
 func Load(filename string) (*Config, error) {
-	contents, err := ioutil.ReadFile(filename)
+	contents, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("error reading config file: %v", err)
 	}

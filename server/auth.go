@@ -3,9 +3,9 @@ package server
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"os"
 	"time"
 
 	"blitiri.com.ar/go/gofer/trace"
@@ -82,7 +82,7 @@ type AuthDB struct {
 }
 
 func LoadAuthFile(path string) (*AuthDB, error) {
-	buf, err := ioutil.ReadFile(path)
+	buf, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
