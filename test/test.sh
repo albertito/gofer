@@ -99,7 +99,7 @@ do
 	echo "### Common tests for $base"
 	exp $base/file -body "ñaca\n"
 
-	exp $base/dir -status 301 -redir /dir/
+	exp $base/dir -status 307 -redir /dir/
 
 	exp $base/dir/ -bodyre '<a href="%C3%B1aca">ñaca</a>'
 	exp $base/dir/ -bodyre '<a href="%23anchor">#anchor</a>'
@@ -159,7 +159,7 @@ do
 	# Files in authdir/; only some are covered by auth.
 	exp $base/authdir/hola -body 'hola marola\n'
 	exp $base/authdir/ñaca -status 401
-	exp $base/authdir/withoutindex -status 301
+	exp $base/authdir/withoutindex -status 307
 	exp $base/authdir/withoutindex/ -status 401
 	exp $base/authdir/withoutindex/chau -status 401
 
@@ -185,7 +185,7 @@ do
 	echo "### Good auth for $base"
 	exp $base/authdir/hola -body 'hola marola\n'
 	exp $base/authdir/ñaca -body "tracañaca\n"
-	exp $base/authdir/withoutindex -status 301
+	exp $base/authdir/withoutindex -status 307
 	exp $base/authdir/withoutindex/ -status 404
 	exp $base/authdir/withoutindex/chau -body 'chau\n'
 done
@@ -200,7 +200,7 @@ do
 	echo "### Bad auth for $base"
 	exp $base/authdir/hola -body 'hola marola\n'
 	exp $base/authdir/ñaca -status 401
-	exp $base/authdir/withoutindex -status 301
+	exp $base/authdir/withoutindex -status 307
 	exp $base/authdir/withoutindex/ -status 401
 	exp $base/authdir/withoutindex/chau -status 401
 done
