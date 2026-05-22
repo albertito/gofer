@@ -6,6 +6,8 @@ _routes: &routes
     proxy: "http://localhost:8450/dir/"
   "/authdir/":
     proxy: "http://localhost:8450/authdir/"
+  "/writable/":
+    proxy: "http://localhost:8450/writable/"
   "/file":
     proxy: "http://localhost:8450/file"
   "/cgi/":

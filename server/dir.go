@@ -12,17 +12,25 @@ import (
 type FileSystem struct {
 	fs http.FileSystem
 
+	// On-disk root of the served directory. Used by the PUT/DELETE handlers
+	// to resolve request paths to filesystem paths. Empty if the underlying
+	// http.FileSystem is not backed by a local directory.
+	root string
+
 	opts config.DirOpts
 }
 
-func NewFS(fs http.FileSystem, opts config.DirOpts) *FileSystem {
+func NewFS(root string, fs http.FileSystem, opts config.DirOpts) *FileSystem {
 	return &FileSystem{
 		fs:   fs,
+		root: root,
 		opts: opts,
 	}
 }
 
-func ListingEnabled(opts *config.DirOpts, name string) bool {
+// prefixMatch returns the value associated with the longest prefix of name in
+// m, or false if no prefix matches.
+func prefixMatch(m map[string]bool, name string) bool {
 	if name == "" {
 		name = "/"
 	}
@@ -30,7 +38,7 @@ func ListingEnabled(opts *config.DirOpts, name string) bool {
 
 	longestP := ""
 	value := false
-	for p, val := range opts.Listing {
+	for p, val := range m {
 		p = filepath.Clean(p)
 		if strings.HasPrefix(name, p) && len(p) > len(longestP) {
 			longestP = p
@@ -41,11 +49,49 @@ func ListingEnabled(opts *config.DirOpts, name string) bool {
 	return value
 }
 
-func (fs *FileSystem) Open(name string) (http.File, error) {
+func ListingEnabled(opts *config.DirOpts, name string) bool {
+	return prefixMatch(opts.Listing, name)
+}
+
+func PutEnabled(opts *config.DirOpts, name string) bool {
+	return prefixMatch(opts.Put, name)
+}
+
+func DeleteEnabled(opts *config.DirOpts, name string) bool {
+	return prefixMatch(opts.Delete, name)
+}
+
+// localPath resolves a URL path to an absolute on-disk path under fs.root.
+// It returns an error if writes are not supported (fs.root is unset) or if
+// the resulting path would escape the root.
+func (fs *FileSystem) localPath(name string) (string, error) {
+	if fs.root == "" {
+		return "", os.ErrPermission
+	}
+	absRoot, err := filepath.Abs(fs.root)
+	if err != nil {
+		return "", err
+	}
+	abs := filepath.Join(absRoot, filepath.FromSlash(name))
+	rel, err := filepath.Rel(absRoot, abs)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", os.ErrPermission
+	}
+	return abs, nil
+}
+
+func (fs *FileSystem) excluded(name string) bool {
 	for _, re := range fs.opts.Exclude {
 		if re.MatchString(name) {
-			return nil, os.ErrNotExist
+			return true
 		}
+	}
+	return false
+}
+
+func (fs *FileSystem) Open(name string) (http.File, error) {
+	if fs.excluded(name) {
+		return nil, os.ErrNotExist
 	}
 
 	f, err := fs.fs.Open(name)

@@ -181,6 +181,35 @@ https:
 	expectErrs(t, `":https": certs or autocerts must be set`,
 		loadAndCheck(t, contents))
 
+	// diropts.put / diropts.delete on a non-directory.
+	contents = `
+https:
+  ":https":
+    certs: "/dev/null"
+    routes:
+      "/":
+        file: "/dev/null"
+        diropts:
+          put:
+            "/": true
+`
+	expectErrs(t, `":https": "/": diropts is set on non-dir route`,
+		loadAndCheck(t, contents))
+
+	contents = `
+https:
+  ":https":
+    certs: "/dev/null"
+    routes:
+      "/":
+        file: "/dev/null"
+        diropts:
+          delete:
+            "/": true
+`
+	expectErrs(t, `":https": "/": diropts is set on non-dir route`,
+		loadAndCheck(t, contents))
+
 	// reqlog reference (http).
 	contents = `
 https:

@@ -259,7 +259,8 @@ func adjustPath(req string, from string, to string) string {
 }
 
 func makeDir(path string, dir string, opts config.DirOpts) http.Handler {
-	fs := FileServer(NewFS(http.Dir(dir), opts))
+	fs := NewFS(dir, http.Dir(dir), opts)
+	srv := FileServer(fs)
 
 	path = stripDomain(path)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -271,7 +272,15 @@ func makeDir(path string, dir string, opts config.DirOpts) http.Handler {
 			r.URL.Path = "/" + r.URL.Path
 		}
 		tr.Printf("adjusted dir: %q", r.URL.Path)
-		fs.ServeHTTP(w, r)
+
+		switch r.Method {
+		case http.MethodPut:
+			handlePut(fs, w, r)
+		case http.MethodDelete:
+			handleDelete(fs, w, r)
+		default:
+			srv.ServeHTTP(w, r)
+		}
 	})
 }
 

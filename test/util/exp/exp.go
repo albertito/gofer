@@ -16,6 +16,12 @@ import (
 	"strings"
 )
 
+// stringSlice is a flag.Value that accumulates repeated values.
+type stringSlice []string
+
+func (s *stringSlice) String() string     { return strings.Join(*s, ",") }
+func (s *stringSlice) Set(v string) error { *s = append(*s, v); return nil }
+
 var exitCode int = 0
 
 func main() {
@@ -46,7 +52,14 @@ func main() {
 			"file to read CA cert from")
 		forceLocalhost = flag.Bool("forcelocalhost", false,
 			"force connection to go to localhost")
+		method = flag.String("method", "GET",
+			"HTTP method to use")
+		reqBody = flag.String("reqbody", "",
+			"request body (interpreted with strconv.Unquote, so \\n etc work)")
+		reqHdr stringSlice
 	)
+	flag.Var(&reqHdr, "reqhdr",
+		"request header in 'Name: value' form (repeatable)")
 	flag.Parse()
 
 	client := &http.Client{
@@ -54,7 +67,32 @@ func main() {
 		Transport:     mkTransport(*caCert, *forceLocalhost),
 	}
 
-	resp, err := client.Get(url)
+	var bodyReader *strings.Reader
+	if *reqBody != "" {
+		s, err := strconv.Unquote("\"" + *reqBody + "\"")
+		if err != nil {
+			fatalf("invalid -reqbody: %v\n", err)
+		}
+		bodyReader = strings.NewReader(s)
+	}
+	var req *http.Request
+	var err error
+	if bodyReader == nil {
+		req, err = http.NewRequest(*method, url, nil)
+	} else {
+		req, err = http.NewRequest(*method, url, bodyReader)
+	}
+	if err != nil {
+		fatalf("error building request: %v\n", err)
+	}
+	for _, h := range reqHdr {
+		k, v, ok := strings.Cut(h, ":")
+		if !ok {
+			fatalf("bad -reqhdr %q, want 'Name: value'\n", h)
+		}
+		req.Header.Add(strings.TrimSpace(k), strings.TrimSpace(v))
+	}
+	resp, err := client.Do(req)
 	if *clientErrorRE != "" {
 		if err == nil {
 			errorf("expected client error, got nil")

@@ -13,6 +13,18 @@ build
 # Remove old request log files, since we will be checking their contents.
 rm -f .01-fe.requests.log .01-be.requests.log
 
+# Set up a writable directory for the PUT/DELETE tests, with a seed file
+# whose mtime is known so we can drive If-Unmodified-Since deterministically.
+rm -rf .writedir .symlink-target
+mkdir -p .writedir/readonly .symlink-target
+echo -n "original" > .writedir/existing
+touch -d "2020-01-01 00:00:00 UTC" .writedir/existing
+
+# Symlink under the writable root pointing at a sibling directory (outside
+# root). Used by the security tests to verify documented symlink-follow
+# behaviour and that DELETE only removes the link, not its target.
+ln -sfn "$(pwd)/.symlink-target" .writedir/linked
+
 # Make sure we don't accidentally use this from the caller.
 unset CACERT
 
@@ -244,6 +256,160 @@ then
 fi
 
 unset CACERT
+
+
+echo "### PUT / DELETE"
+
+BE=http://localhost:8450
+
+# PUT disabled on /readonly/ subprefix (longest-prefix match wins).
+exp $BE/writable/readonly/x -method PUT -reqbody "no" -status 405
+# DELETE is still enabled on /readonly/ (only PUT is denied there),
+# but the target doesn't exist.
+exp $BE/writable/readonly/x -method DELETE -status 404
+
+# PUT a new file -> 201, content readable back. The response carries a
+# Last-Modified validator for subsequent If-Unmodified-Since requests.
+exp $BE/writable/new.txt -method PUT -reqbody "hello\n" -status 201 \
+    -hdrre "Last-Modified: "
+exp $BE/writable/new.txt -body "hello\n"
+
+# PUT over an existing file -> 204, content replaced.
+exp $BE/writable/new.txt -method PUT -reqbody "again\n" -status 204
+exp $BE/writable/new.txt -body "again\n"
+
+# PUT auto-creates parent directories.
+exp $BE/writable/a/b/c.txt -method PUT -reqbody "deep\n" -status 201
+exp $BE/writable/a/b/c.txt -body "deep\n"
+
+# PUT onto an existing directory -> 409.
+exp $BE/writable/a -method PUT -reqbody "nope" -status 409
+
+# Excluded paths return 404 on writes too.
+exp $BE/writable/secret.txt -method PUT -reqbody "x" -status 404
+exp $BE/writable/secret.txt -method DELETE -status 404
+
+# Empty-body PUT creates a zero-byte file.
+exp $BE/writable/empty -method PUT -status 201
+exp $BE/writable/empty -body ""
+
+# Path traversal: net/http normalises the path. Depending on whether the
+# client (or the mux) does the cleaning, we see either a 307 redirect to
+# the canonical form or a direct 404. Either way, our handler is not
+# called, so nothing is written outside the root.
+exp "$BE/writable/../escaped" -method PUT -reqbody "x" -statuslist 307,404
+[ ! -e escaped ] || { echo "traversal wrote outside root"; exit 1; }
+
+# If-Unmodified-Since: stale (file mtime > header) -> 412, content unchanged.
+exp $BE/writable/existing -method PUT \
+    -reqhdr "If-Unmodified-Since: Wed, 01 Jan 2000 00:00:00 GMT" \
+    -reqbody "should not write" -status 412
+exp $BE/writable/existing -body "original"
+
+# If-Unmodified-Since: in the future -> 204, content replaced.
+exp $BE/writable/existing -method PUT \
+    -reqhdr "If-Unmodified-Since: Thu, 01 Jan 2099 00:00:00 GMT" \
+    -reqbody "updated" -status 204
+exp $BE/writable/existing -body "updated"
+
+# DELETE existing file -> 204; then GET -> 404.
+exp $BE/writable/new.txt -method DELETE -status 204
+exp $BE/writable/new.txt -status 404
+
+# DELETE with stale If-Unmodified-Since -> 412, file still there.
+exp $BE/writable/empty -method DELETE \
+    -reqhdr "If-Unmodified-Since: Wed, 01 Jan 2000 00:00:00 GMT" \
+    -status 412
+exp $BE/writable/empty -status 200
+
+# DELETE on a directory -> 409.
+exp $BE/writable/a -method DELETE -status 409
+
+# DELETE missing file -> 404.
+exp $BE/writable/never -method DELETE -status 404
+
+# PUT through the FE proxy works end-to-end.
+FE=http://localhost:8441
+exp $FE/writable/via-fe.txt -method PUT -reqbody "fe\n" -status 201
+exp $FE/writable/via-fe.txt -body "fe\n"
+
+
+echo "### PUT / DELETE security"
+
+# URL-encoded "..": the encoded form is preserved on the wire (clients
+# that pre-normalise may behave differently). The mux still routes
+# /writable/ since the cleaned-but-still-decoded path starts with it; our
+# handler then sees "/../escaped-encoded" which path.Clean turns into
+# "/escaped-encoded" — INSIDE the root. Lock that in.
+exp "$BE/writable/%2E%2E/escaped-encoded" -method PUT -reqbody "x" -status 201
+[ -f .writedir/escaped-encoded ] || \
+	{ echo "expected .writedir/escaped-encoded"; exit 1; }
+
+# URL-encoded "../" (slash also encoded): URL.Path becomes /writable/../foo,
+# the mux still routes /writable/ and our handler runs. path.Clean turns
+# "/../foo" into "/foo", which lands INSIDE the root (no escape). Lock in
+# this behaviour and confirm the file is under .writedir/.
+exp "$BE/writable/%2e%2e%2fenc-slash" -method PUT -reqbody "x" -status 201
+[ -f .writedir/enc-slash ] || \
+	{ echo "expected .writedir/enc-slash"; exit 1; }
+
+# Double-encoded "..": decoded once to literal "%2E%2E", treated as a
+# normal filename segment (no traversal). File lands inside root with a
+# literal name.
+exp "$BE/writable/%252E%252E/double-enc" -method PUT -reqbody "x" -status 201
+[ -f '.writedir/%2E%2E/double-enc' ] || \
+	{ echo "expected literal %2E%2E dir"; exit 1; }
+
+# Collapsed slashes: mux normalises and redirects to the canonical form.
+exp "$BE/writable//collapsed" -method PUT -reqbody "x" -statuslist 301,307,308
+
+# Prefix-toggle bypass attempt: "/readonly/../bypass" cleans to
+# "/writable/bypass". Depending on the client, either:
+#   - the mux sees the dirty path, cleans it and 307-redirects (no write);
+#   - or the client pre-cleans the path and the canonical form is what
+#     reaches the handler (PUT succeeds, allowed by the "/" rule).
+# Either way the toggle works on the canonical path: the readonly prefix
+# is never effective against a request that resolves to a non-readonly
+# path. Lock that in (no escape either way).
+exp "$BE/writable/readonly/../bypass" -method PUT -reqbody "x" \
+	-statuslist 201,307
+# No "bypass" file should have appeared above the root.
+[ ! -e bypass ] || { echo "bypass leaked above root"; exit 1; }
+
+# Excludes apply after URL-decoding.
+exp "$BE/writable/%73ecret.txt" -method PUT -reqbody "x" -status 404
+exp "$BE/writable/%73ecret.txt" -method DELETE -status 404
+
+# Null bytes in the filename: rejected by the OS. We don't care about the
+# exact status, only that nothing was written.
+exp "$BE/writable/foo%00bar" -method PUT -reqbody "x" -statuslist 400,500
+
+# Symlink follow (documented behaviour): PUT through a symlink-directory
+# inside the root writes to the symlink target. Don't place such symlinks
+# unless you want this.
+exp $BE/writable/linked/via-symlink -method PUT \
+	-reqbody "via-symlink" -status 201
+[ -f .symlink-target/via-symlink ] || \
+	{ echo "symlink follow broken"; exit 1; }
+
+# DELETE on a symlink removes the link itself, not what it points to.
+exp $BE/writable/linked -method DELETE -status 204
+[ ! -e .writedir/linked ] || \
+	{ echo "symlink should be gone"; exit 1; }
+[ -f .symlink-target/via-symlink ] || \
+	{ echo "symlink target should still exist"; exit 1; }
+
+# Final invariant: every PUT we issued landed under .writedir/ or
+# .symlink-target/. Walk the test directory for stray files that match the
+# names we tried to write through traversal.
+for f in escaped escaped-encoded bypass double-enc collapsed; do
+	for d in . .. /tmp; do
+		if [ -e "$d/$f" ]; then
+			echo "FAIL: traversal wrote outside root: $d/$f exists"
+			exit 1
+		fi
+	done
+done
 
 
 echo "### Request log"

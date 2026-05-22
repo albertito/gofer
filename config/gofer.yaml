@@ -105,8 +105,30 @@ http:
 
           # Exclude files matching these regular expressions. They won't appear
           # in listings, and won't be served to users (404 will be returned
-          # instead).
+          # instead). The exclusions also apply to PUT and DELETE.
           #exclude: [".*\\.secret", ".*/config"]
+
+          # Allow PUT (upload) on the given path prefixes. Longest prefix wins.
+          # Default is disabled.
+          # When enabled, PUT writes a file at the target path, atomically
+          # (temp file + rename). Parent directories are created as needed.
+          # If-Unmodified-Since is honored: a stale value returns 412.
+          # WARNING: enabling PUT without "auth:" exposes the directory to
+          # anonymous writes.
+          # NOTE: symlinks under the served directory are followed (same as
+          # for GET). A symlink-directory under the root therefore allows PUT
+          # to write outside the root. Don't place such symlinks if you don't
+          # want that.
+          #put:
+          #  "/pub/": true
+
+          # Allow DELETE on the given path prefixes. Longest prefix wins.
+          # Default is disabled. Only files can be deleted; DELETE on a
+          # directory returns 409. If-Unmodified-Since is honored.
+          # WARNING: as with put, enabling DELETE without "auth:" exposes the
+          # directory to anonymous deletions.
+          #delete:
+          #  "/pub/": true
 
     # Enforce authentication on these paths. The target is the file containing
     # the user and passwords.

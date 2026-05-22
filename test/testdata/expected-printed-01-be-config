@@ -36,6 +36,18 @@ http:
                     - "0.5"
             /status/543:
                 status: 543
+            /writable/:
+                dir: .writedir
+                diropts:
+                    listing:
+                        /: true
+                    exclude:
+                        - /secret\..*
+                    put:
+                        /: true
+                        /readonly/: false
+                    delete:
+                        /: true
         auth:
             /authdir/withoutindex/: testdata/authdb.yaml
             /authdir/ñaca: testdata/authdb.yaml

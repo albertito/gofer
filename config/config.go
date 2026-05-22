@@ -75,6 +75,8 @@ type Route struct {
 type DirOpts struct {
 	Listing map[string]bool `yaml:",omitempty"`
 	Exclude []PathRegexp    `yaml:",omitempty"`
+	Put     map[string]bool `yaml:",omitempty"`
+	Delete  map[string]bool `yaml:",omitempty"`
 }
 
 type Raw struct {
@@ -153,7 +155,8 @@ func (h HTTP) Check(c Config, addr string) []error {
 	}
 
 	for path, r := range h.Routes {
-		if len(r.DirOpts.Listing)+len(r.DirOpts.Exclude) > 0 && r.Dir == "" {
+		if len(r.DirOpts.Listing)+len(r.DirOpts.Exclude)+
+			len(r.DirOpts.Put)+len(r.DirOpts.Delete) > 0 && r.Dir == "" {
 			errs = append(errs,
 				fmt.Errorf("%q: %q: diropts is set on non-dir route",
 					addr, path))
