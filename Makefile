@@ -13,6 +13,9 @@ vet: config/gofer.yaml etc/gofer.yaml test/01-be.yaml test/01-fe.yaml
 	go vet ./...
 	cue vet config/gofer.schema.cue $^
 
+fmt:
+	go fmt ./...
+
 test: vet
 	go test ./...
 	setsid -w ./test/test.sh
