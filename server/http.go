@@ -12,6 +12,7 @@ import (
 	"net/http/cgi"
 	"net/http/httputil"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -259,8 +260,8 @@ func adjustPath(req string, from string, to string) string {
 }
 
 func makeDir(path string, dir string, opts config.DirOpts) http.Handler {
-	fs := NewFS(dir, http.Dir(dir), opts)
-	srv := FileServer(fs)
+	base := NewFS(dir, http.Dir(dir), opts)
+	baseSrv := FileServer(base)
 
 	path = stripDomain(path)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -272,6 +273,27 @@ func makeDir(path string, dir string, opts config.DirOpts) http.Handler {
 			r.URL.Path = "/" + r.URL.Path
 		}
 		tr.Printf("adjusted dir: %q", r.URL.Path)
+
+		// For per-user routes, root the filesystem at <dir>/<user>. The
+		// request path stays user-relative, so diropts (listing, put, ...)
+		// are evaluated relative to each user's directory.
+		fs, srv := base, baseSrv
+		if opts.PerUser {
+			user, ok := UserFromContext(r.Context())
+			if !ok {
+				// per_user requires authentication; fail closed. The config
+				// check enforces auth coverage, so we should not get here.
+				tr.Printf("per_user route reached without authenticated user")
+				http.Error(w, "403 Forbidden", http.StatusForbidden)
+				return
+			}
+			// user is validated at load time, so it is a single safe path
+			// component and cannot escape dir.
+			root := filepath.Join(dir, user)
+			tr.Printf("per-user root %q", root)
+			fs = NewFS(root, http.Dir(root), opts)
+			srv = FileServer(fs)
+		}
 
 		switch r.Method {
 		case http.MethodPut:

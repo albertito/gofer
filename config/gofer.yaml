@@ -130,6 +130,15 @@ http:
           #delete:
           #  "/pub/": true
 
+          # Serve a per-user subdirectory: map requests to <dir>/<user>/,
+          # where <user> is the authenticated user. The request path stays
+          # relative to the user's directory, so the other diropts (listing,
+          # put, delete, exclude) are evaluated within it. The user directory
+          # is created automatically on the first PUT.
+          # This requires the route to be covered by "auth:" (gofer refuses to
+          # start otherwise), since the directory is derived from the user.
+          #per_user: true
+
     # Enforce authentication on these paths. The target is the file containing
     # the user and passwords.
     #auth:

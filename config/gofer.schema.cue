@@ -60,6 +60,7 @@ https?:
 			exclude?: [string]
 			put?: [string]: bool
 			delete?: [string]: bool
+			per_user?: bool
 		}
 
 		// If diropts is set, then dir must be set too.

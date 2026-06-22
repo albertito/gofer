@@ -77,6 +77,13 @@ type DirOpts struct {
 	Exclude []PathRegexp    `yaml:",omitempty"`
 	Put     map[string]bool `yaml:",omitempty"`
 	Delete  map[string]bool `yaml:",omitempty"`
+	PerUser bool            `yaml:"per_user,omitempty"`
+}
+
+// set reports whether any directory option is configured.
+func (o DirOpts) set() bool {
+	return len(o.Listing)+len(o.Exclude)+len(o.Put)+len(o.Delete) > 0 ||
+		o.PerUser
 }
 
 type Raw struct {
@@ -155,10 +162,18 @@ func (h HTTP) Check(c Config, addr string) []error {
 	}
 
 	for path, r := range h.Routes {
-		if len(r.DirOpts.Listing)+len(r.DirOpts.Exclude)+
-			len(r.DirOpts.Put)+len(r.DirOpts.Delete) > 0 && r.Dir == "" {
+		if r.DirOpts.set() && r.Dir == "" {
 			errs = append(errs,
 				fmt.Errorf("%q: %q: diropts is set on non-dir route",
+					addr, path))
+		}
+
+		// A per_user route derives the served directory from the
+		// authenticated user, so it must be covered by an auth entry;
+		// otherwise it would reject every request.
+		if r.DirOpts.PerUser && !h.authCovers(path) {
+			errs = append(errs,
+				fmt.Errorf("%q: %q: per_user route is not covered by auth",
 					addr, path))
 		}
 
@@ -205,6 +220,22 @@ func (h HTTP) Check(c Config, addr string) []error {
 	}
 
 	return errs
+}
+
+// authCovers reports whether every request matching the route path is forced
+// through authentication, i.e. some auth entry is "/", an exact match, or a
+// subtree prefix ("…/") of path. Domain-scoped keys are matched as plain
+// string prefixes, which is good enough for this startup check.
+func (h HTTP) authCovers(path string) bool {
+	for a := range h.Auth {
+		if a == "/" || a == path {
+			return true
+		}
+		if strings.HasSuffix(a, "/") && strings.HasPrefix(path, a) {
+			return true
+		}
+	}
+	return false
 }
 
 // Count how many true values are in a series of bools.

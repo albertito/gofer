@@ -25,6 +25,10 @@ touch -d "2020-01-01 00:00:00 UTC" .writedir/existing
 # behaviour and that DELETE only removes the link, not its target.
 ln -sfn "$(pwd)/.symlink-target" .writedir/linked
 
+# Per-user directory tests start from a clean slate; the per-user
+# subdirectories are created on the first PUT.
+rm -rf .peruserdir
+
 # Make sure we don't accidentally use this from the caller.
 unset CACERT
 
@@ -410,6 +414,45 @@ for f in escaped escaped-encoded bypass double-enc collapsed; do
 		fi
 	done
 done
+
+
+echo "### Per-user directories"
+
+# Two users PUT the same request path; each lands in its own subdirectory.
+exp http://oneuser:onepass@localhost:8450/peruser/f.txt \
+    -method PUT -reqbody "one-data" -status 201
+exp http://twouser:twopass@localhost:8450/peruser/f.txt \
+    -method PUT -reqbody "two-data" -status 201
+[ "$(cat .peruserdir/oneuser/f.txt)" = "one-data" ] || \
+    { echo "oneuser per-user file wrong"; exit 1; }
+[ "$(cat .peruserdir/twouser/f.txt)" = "two-data" ] || \
+    { echo "twouser per-user file wrong"; exit 1; }
+
+# Each user reads back their own copy through the same URL.
+exp http://oneuser:onepass@localhost:8450/peruser/f.txt -body "one-data"
+exp http://twouser:twopass@localhost:8450/peruser/f.txt -body "two-data"
+
+# Without auth -> 401 (auth layer runs first), nothing written.
+exp http://localhost:8450/peruser/anon.txt -method PUT -reqbody "x" -status 401
+[ ! -e .peruserdir/anon.txt ] || { echo "anon per-user write leaked"; exit 1; }
+
+# Depth: a deeper request path lands under the user's directory, with parent
+# directories auto-created.
+exp http://oneuser:onepass@localhost:8450/peruser/a/b/c.txt \
+    -method PUT -reqbody "deep" -status 201
+[ -f .peruserdir/oneuser/a/b/c.txt ] || \
+    { echo "deep per-user file missing"; exit 1; }
+
+# DELETE is per-user too: oneuser deleting does not affect twouser's copy.
+exp http://oneuser:onepass@localhost:8450/peruser/f.txt -method DELETE -status 204
+exp http://oneuser:onepass@localhost:8450/peruser/f.txt -status 404
+exp http://twouser:twopass@localhost:8450/peruser/f.txt -body "two-data"
+
+# Per-user PUT through the FE proxy works end-to-end (auth header forwarded).
+exp http://oneuser:onepass@localhost:8441/peruser/via-fe.txt \
+    -method PUT -reqbody "fe-data" -status 201
+[ "$(cat .peruserdir/oneuser/via-fe.txt)" = "fe-data" ] || \
+    { echo "per-user via-fe file wrong"; exit 1; }
 
 
 echo "### Request log"

@@ -34,6 +34,17 @@ http:
           delete:
             "/": true
 
+      "/peruser/":
+        dir: ".peruserdir"
+        diropts:
+          listing:
+            "/": true
+          put:
+            "/": true
+          delete:
+            "/": true
+          per_user: true
+
       "/file":
         file: "testdata/file"
 
@@ -56,6 +67,7 @@ http:
     auth:
       "/authdir/ñaca": "testdata/authdb.yaml"
       "/authdir/withoutindex/": "testdata/authdb.yaml"
+      "/peruser/": "testdata/authdb.yaml"
 
     setheader:
       "/file":

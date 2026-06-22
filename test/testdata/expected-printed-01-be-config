@@ -22,6 +22,16 @@ http:
                 file: testdata/file
             /file/second:
                 file: testdata/dir/ñaca
+            /peruser/:
+                dir: .peruserdir
+                diropts:
+                    listing:
+                        /: true
+                    put:
+                        /: true
+                    delete:
+                        /: true
+                    per_user: true
             /slow/10ms:
                 cgi:
                     - testdata/sleep.sh
@@ -51,6 +61,7 @@ http:
         auth:
             /authdir/withoutindex/: testdata/authdb.yaml
             /authdir/ñaca: testdata/authdb.yaml
+            /peruser/: testdata/authdb.yaml
         setheader:
             /file:
                 X-My-Header: my lovely header

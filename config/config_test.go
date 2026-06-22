@@ -210,6 +210,69 @@ https:
 	expectErrs(t, `":https": "/": diropts is set on non-dir route`,
 		loadAndCheck(t, contents))
 
+	// diropts.per_user on a non-directory.
+	contents = `
+https:
+  ":https":
+    certs: "/dev/null"
+    routes:
+      "/":
+        file: "/dev/null"
+        diropts:
+          per_user: true
+`
+	expectErrs(t, `":https": "/": diropts is set on non-dir route`,
+		loadAndCheck(t, contents))
+
+	// per_user route not covered by auth.
+	contents = `
+https:
+  ":https":
+    certs: "/dev/null"
+    routes:
+      "/w/":
+        dir: "/tmp"
+        diropts:
+          per_user: true
+`
+	expectErrs(t, `":https": "/w/": per_user route is not covered by auth`,
+		loadAndCheck(t, contents))
+
+	// per_user route covered by auth: no error.
+	contents = `
+https:
+  ":https":
+    certs: "/dev/null"
+    routes:
+      "/w/":
+        dir: "/tmp"
+        diropts:
+          per_user: true
+    auth:
+      "/w/": "/dev/null"
+`
+	if errs := loadAndCheck(t, contents); len(errs) > 0 {
+		t.Errorf("per_user route covered by auth: unexpected errors: %v", errs)
+	}
+
+	// per_user route covered by a subtree-prefix auth entry: no error.
+	contents = `
+https:
+  ":https":
+    certs: "/dev/null"
+    routes:
+      "/w/sub/":
+        dir: "/tmp"
+        diropts:
+          per_user: true
+    auth:
+      "/w/": "/dev/null"
+`
+	if errs := loadAndCheck(t, contents); len(errs) > 0 {
+		t.Errorf("per_user route covered by subtree auth: unexpected errors: %v",
+			errs)
+	}
+
 	// reqlog reference (http).
 	contents = `
 https:
